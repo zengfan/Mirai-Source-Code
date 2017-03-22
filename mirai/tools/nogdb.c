@@ -1,3 +1,6 @@
+
+/*反ｇｄｂ调试*/
+
 #include <stdio.h>
 #include <sys/mman.h>
 #include <unistd.h>

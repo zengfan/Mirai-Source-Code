@@ -1,3 +1,5 @@
+/*实现ｗｇｅｔ下载*/
+
 #include <sys/types.h>
 //#include <bits/syscalls.h>
 #include <sys/syscall.h>

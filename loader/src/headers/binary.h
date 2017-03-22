@@ -5,9 +5,9 @@
 #define BINARY_BYTES_PER_ECHOLINE   128
 
 struct binary {
-    char arch[6];
-    int hex_payloads_len;
-    char **hex_payloads;
+    char arch[6];//体系架构
+    int hex_payloads_len;//payload的长度
+    char **hex_payloads;//payload
 };
 
 BOOL binary_init(void);

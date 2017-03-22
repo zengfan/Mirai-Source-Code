@@ -12,6 +12,7 @@ type Bot struct {
     source  string
 }
 
+//解析命令
 func NewBot(conn net.Conn, version byte, source string) *Bot {
     return &Bot{-1, conn, version, source}
 }
