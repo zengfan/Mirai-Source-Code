@@ -608,6 +608,7 @@ int connection_upload_echo(struct connection *conn)
     return 0;
 }
 
+//验证以wget方式上传是否成功
 int connection_upload_wget(struct connection *conn)
 {
     int offset = util_memsearch(conn->rdbuf, conn->rdbuf_pos, TOKEN_RESPONSE, strlen(TOKEN_RESPONSE));
