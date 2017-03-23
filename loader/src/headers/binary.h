@@ -10,6 +10,7 @@ struct binary {
     char **hex_payloads;//payload
 };
 
+//将所有bin文件读入binary结构体中,结构体数组
 BOOL binary_init(void);
 struct binary *binary_get_by_arch(char *arch);
 

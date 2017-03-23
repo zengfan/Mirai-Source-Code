@@ -41,6 +41,7 @@ BOOL binary_init(void)
     return TRUE;
 }
 
+//取得某种arch的bin文件
 struct binary *binary_get_by_arch(char *arch)
 {
     int i;
@@ -53,7 +54,7 @@ struct binary *binary_get_by_arch(char *arch)
 
     return NULL;
 }
-
+/*将bin文件读入内存*/
 static BOOL load(struct binary *bin, char *fname)
 {
     FILE *file;
