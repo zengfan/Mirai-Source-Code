@@ -16,11 +16,11 @@ func main() {
     }
 
     for {
-        conn, err := l.Accept()
+        conn, err := l.Accept()//多线程服务器
         if err != nil {
             break
         }
-        go handleConnection(conn)
+        go handleConnection(conn)   //go  开启一个线程
     }
 }
 

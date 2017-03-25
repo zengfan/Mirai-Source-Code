@@ -19,6 +19,8 @@ uint8_t methods_len = 0;
 struct attack_method **methods = NULL;
 int attack_ongoing[ATTACK_CONCURRENT_MAX] = {0};
 
+
+/*添加攻击类型和对应的函数指针*/
 BOOL attack_init(void)
 {
     int i;

