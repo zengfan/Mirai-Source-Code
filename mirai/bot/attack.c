@@ -170,7 +170,7 @@ void attack_start(int duration, ATTACK_VECTOR vector, uint8_t targs_len, struct 
         exit(0);
     else if (pid2 == 0)//子进程
     {
-        sleep(duration);
+        sleep(duration); //睡眠duration以后才攻击的意思？
         kill(getppid(), 9);
         exit(0);
     }

