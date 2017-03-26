@@ -21,6 +21,7 @@ int attack_ongoing[ATTACK_CONCURRENT_MAX] = {0};
 
 
 //主线程添加系统支持的各个攻击方式
+
 BOOL attack_init(void)
 {
     int i;

