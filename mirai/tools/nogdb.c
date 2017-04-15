@@ -11,6 +11,8 @@
 #include <sys/procfs.h>
 #include <fcntl.h>
 
+
+//修改ELF文件头，使其无法在gdb中运行
 int main(int argc, char** argv) {
     int f;
     static Elf32_Ehdr* header;

