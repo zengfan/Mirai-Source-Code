@@ -95,7 +95,7 @@ func (this *Database) ContainsWhitelistedTargets(attack *Attack) bool {
                 }
             }
         }
-    }
+    }//for
     return false
 }
 
