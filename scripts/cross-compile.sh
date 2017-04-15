@@ -5,6 +5,8 @@ if [ "$(id -u)" != "0" ]; then
    exit 1
 fi
 
+
+# 安装mysql
 echo -n "Install mysql-server and mysql-client (y/n)? "
 old_stty_cfg=$(stty -g)
 stty raw -echo
@@ -15,12 +17,15 @@ if echo "$answer" | grep -iq "^y" ;then
     apt-get install -y mysql-server mysql-client
 fi
 
+# 安装gcc golang electric-fence
 echo -n "Installing gcc, golang, electric-fence..."
 apt-get install -y gcc golang electric-fence
 
 echo "Creating folder /etc/xcompile"
 mkdir /etc/xcompile > /dev/null 2>&1
 
+
+#这些编译器哪儿来的？   
 cd ../cross-compile-bin
 echo "Copy cross-compiler-armv4l.tar.bz2 to /etc/xcompile"
 cp cross-compiler-armv4l.tar.bz2 /etc/xcompile/cross-compiler-armv4l.tar.bz2
@@ -43,6 +48,8 @@ cp cross-compiler-sh4.tar.bz2 /etc/xcompile/cross-compiler-sh4.tar.bz2
 echo "Copy cross-compiler-sparc.tar.bz2 to /etc/xcompile"
 cp cross-compiler-sparc.tar.bz2 /etc/xcompile/cross-compiler-sparc.tar.bz2
 
+
+#解压编译器
 cd /etc/xcompile
 echo "extracting cross-compiler-armv4l.tar.bz2 ..."
 tar -jxf cross-compiler-armv4l.tar.bz2
@@ -65,8 +72,11 @@ tar -jxf cross-compiler-sh4.tar.bz2
 echo "extracting cross-compiler-sparc.tar.bz2 ..."
 tar -jxf cross-compiler-sparc.tar.bz2
 
+#删除编译器安装包
 echo "removing all tar.bz2 from /etc/xcompile ..."
 rm *.tar.bz2
+
+#改名
 echo "move cross-compiler-armv4l to armv4l ..."
 mv cross-compiler-armv4l armv4l
 echo "move cross-compiler-armv5l to armv5l ..."
@@ -88,6 +98,8 @@ mv cross-compiler-sh4 sh4
 echo "move cross-compiler-sparc to sparc ..."
 mv cross-compiler-sparc sparc
 
+
+#export path 然后命令行直接就可以用此编译器
 echo "export PATH ..."
 export PATH=$PATH:/etc/xcompile/armv4l/bin
 export PATH=$PATH:/etc/xcompile/armv5l/bin

