@@ -1,15 +1,19 @@
 #!/bin/bash
 
+#  
+
 FLAGS=""
 
-function compile_bot {
+function compile_bot {    # $1-gcc是啥啊。。。。。  release-gcc?
     "$1-gcc" -std=c99 $3 bot/*.c -O3 -fomit-frame-pointer -fdata-sections -ffunction-sections -Wl,--gc-sections -o release/"$2" -DMIRAI_BOT_ARCH=\""$1"\"
     "$1-strip" release/"$2" -S --strip-unneeded --remove-section=.note.gnu.gold-version --remove-section=.comment --remove-section=.note --remove-section=.note.gnu.build-id --remove-section=.note.ABI-tag --remove-section=.jcr --remove-section=.got.plt --remove-section=.eh_frame --remove-section=.eh_frame_ptr --remove-section=.eh_frame_hdr
 }
 
+
+# 一共两个参数  $0表示shell本身的程序名  $1表示第一个参数
 if [ $# == 2 ]; then
     if [ "$2" == "telnet" ]; then
-        FLAGS="-DMIRAI_TELNET"
+        FLAGS="-DMIRAI_TELNET"     #定义宏MIRAI_TELNET
     elif [ "$2" == "ssh" ]; then
         FLAGS="-DMIRAI_SSH"
     fi
@@ -47,7 +51,7 @@ elif [ "$1" == "release" ]; then
     compile_bot sh4 miraint.sh4 "-static"
 
     go build -o release/scanListen tools/scanListen.go
-elif [ "$1" == "debug" ]; then
+elif [ "$1" == "debug" ]; then   
     gcc -std=c99 bot/*.c -DDEBUG "$FLAGS" -static -g -o debug/mirai.dbg
     mips-gcc -std=c99 -DDEBUG bot/*.c "$FLAGS" -static -g -o debug/mirai.mips
     armv4l-gcc -std=c99 -DDEBUG bot/*.c "$FLAGS" -static -g -o debug/mirai.arm

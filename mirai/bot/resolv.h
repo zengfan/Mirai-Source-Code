@@ -2,6 +2,8 @@
 
 #include "includes.h"
 
+
+//解析出来的IP
 struct resolv_entries {
     uint8_t addrs_len;
     ipv4_t *addrs;

