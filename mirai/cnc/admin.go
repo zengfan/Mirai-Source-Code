@@ -188,7 +188,7 @@ func (this *Admin) Handle() {
             }
             continue
         }
-        if cmd[0] == '-' { 
+        if cmd[0] == '-' {    //没懂
             countSplit := strings.SplitN(cmd, " ", 2)
             count := countSplit[0][1:]
             botCount, err = strconv.Atoi(count)

